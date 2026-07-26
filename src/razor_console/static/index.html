@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Razor Console</title>
+  <link rel="stylesheet" href="/console.css">
+</head>
+<body class="runtime-off">
+  <div class="ambient"></div>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">RZ</div>
+        <div>
+          <h1>Razor Console</h1>
+          <p>Runtime · TOML · Output</p>
+        </div>
+      </div>
+      <div class="runtime-control">
+        <span class="status-pill offline" id="runtime-status"><i></i>Runtime offline</span>
+        <button class="button start" id="start-button">Start program</button>
+        <button class="button stop" id="stop-button" disabled>Stop program</button>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <aside class="sidebar panel">
+        <div class="sidebar-section">
+          <span class="eyebrow">Configuration</span>
+          <h2>TOML files</h2>
+          <button class="file-card active" id="boot-button">
+            <span class="file-icon">B</span>
+            <span><strong>boot.toml</strong><small>Shared system configuration</small></span>
+          </button>
+          <label class="select-label" for="game-select">Game configuration</label>
+          <select id="game-select"></select>
+          <div class="row-actions">
+            <button class="button subtle" id="open-game-button">Open</button>
+            <button class="button subtle" id="new-game-button">New</button>
+            <button class="button danger-text" id="delete-game-button">Delete</button>
+          </div>
+        </div>
+
+        <footer class="sidebar-footer">
+          <span>Runtime directory</span>
+          <code>D:\Project\SuperAimBot</code>
+        </footer>
+      </aside>
+
+      <section class="editor panel">
+        <header class="panel-header">
+          <div>
+            <span class="eyebrow">Raw TOML editor</span>
+            <h2 id="editor-title">boot.toml</h2>
+            <p id="editor-path">D:\Project\SuperAimBot\boot.toml</p>
+          </div>
+          <div class="editor-actions">
+            <span class="save-state" id="save-state">saved</span>
+            <button class="button subtle comment-button" id="toggle-comment-button" title="Comment or uncomment selected lines (Ctrl+/)"># Comment</button>
+            <button class="button subtle" id="reload-button">Reload</button>
+            <button class="button save" id="save-button">Save</button>
+          </div>
+        </header>
+        <div class="editor-surface">
+          <pre class="line-numbers" id="line-numbers" aria-hidden="true">1</pre>
+          <div class="editor-code">
+            <pre id="toml-highlight" aria-hidden="true"><code></code></pre>
+            <textarea id="toml-editor" spellcheck="false" autocomplete="off" aria-label="TOML editor"></textarea>
+          </div>
+        </div>
+        <footer class="editor-footer">
+          <span id="cursor-position">Ln 1, Col 1</span>
+          <span>UTF-8 · TOML</span>
+        </footer>
+      </section>
+
+      <aside class="output-column">
+        <section class="frame-panel panel">
+          <header class="panel-header compact">
+            <div>
+              <span class="eyebrow">Frame output</span>
+              <h2>Preview</h2>
+            </div>
+            <div class="frame-header-actions">
+              <span class="mini-pill off" id="frame-state">bridge.enabled = false</span>
+              <button class="frame-expand-button" id="open-frame-button" title="Show native imgsz frame" disabled>&lt;&gt;</button>
+            </div>
+          </header>
+          <div class="frame-stage disabled" id="frame-stage">
+            <img id="frame-image" alt="Runtime frame" hidden>
+            <div class="frame-placeholder" id="frame-placeholder">
+              <div class="crosshair"></div>
+              <strong>Frame output disabled</strong>
+              <span>Set <code>bridge.enabled = true</code> in boot.toml</span>
+            </div>
+            <div class="frame-meta">
+              <span id="frame-profile">delta_force.toml</span>
+              <span id="frame-connection">offline</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="runtime-log panel">
+          <header class="panel-header compact">
+            <div><span class="eyebrow">Bridge output</span><h2>Runtime Log</h2></div>
+            <button id="clear-runtime-log">Clear</button>
+          </header>
+          <div class="runtime-log-list" id="runtime-log-list">
+            <div class="runtime-log-empty" id="runtime-log-empty">Waiting for Runtime logs...</div>
+          </div>
+        </section>
+
+        <section class="activity panel">
+          <header class="panel-header compact">
+            <div><span class="eyebrow">Activity</span><h2>Console events</h2></div>
+            <button id="clear-events">Clear</button>
+          </header>
+          <div class="event-list" id="event-list"></div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <dialog id="frame-dialog" class="frame-dialog">
+    <header>
+      <div>
+        <span class="eyebrow">Native frame</span>
+        <h2>Runtime imgsz <small id="native-frame-size">waiting</small></h2>
+      </div>
+      <button class="dialog-close" id="close-frame-dialog" aria-label="Close">×</button>
+    </header>
+    <div class="native-frame-viewport">
+      <div class="native-frame-canvas">
+        <img id="native-frame-image" alt="Runtime frame at native imgsz">
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="new-game-dialog">
+    <form method="dialog">
+      <header>
+        <div><span class="eyebrow">Game configuration</span><h2>New TOML file</h2></div>
+        <button value="cancel" class="dialog-close">×</button>
+      </header>
+      <div class="dialog-body">
+        <label>File name<input id="new-game-name" placeholder="apex_legends" autocomplete="off"></label>
+        <label>Copy from<select id="new-game-source"></select></label>
+      </div>
+      <footer>
+        <button value="cancel" class="button subtle">Cancel</button>
+        <button value="default" class="button save" id="create-game-button">Create</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast"><strong id="toast-title"></strong><span id="toast-message"></span></div>
+  <script src="/console.js"></script>
+</body>
+</html>

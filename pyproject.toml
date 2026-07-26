@@ -1,0 +1,23 @@
+[project]
+name = "razor-console"
+version = "0.1.0"
+description = "Web process supervisor and TOML editor for Razor Runtime"
+readme = "README.md"
+authors = [
+    { name = "askfiy", email = "c23231821078@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.140.0",
+    "pydantic-settings>=2.14.2",
+    "tomlkit>=0.15.1",
+    "uvicorn[standard]>=0.51.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/askfiy/Razor-Console"
+Repository = "https://github.com/askfiy/Razor-Console.git"
+
+[build-system]
+requires = ["uv_build>=0.10.6,<0.11.0"]
+build-backend = "uv_build"
