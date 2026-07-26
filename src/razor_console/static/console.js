@@ -443,6 +443,7 @@ async function pollRuntime() {
 
 async function startRuntime() {
   $("#start-button").disabled = true;
+  clearRuntimeLogs();
   try {
     const status = await api("/api/runtime/start", {method: "POST"});
     applyRuntimeStatus(status, true);

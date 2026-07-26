@@ -319,11 +319,85 @@ class RuntimeProcess:
             "Runtime .venv was not found; run `uv sync` in the Runtime directory"
         )
 
+    def _terminate_existing_runtime_processes(self) -> int:
+        """Kill stale processes whose executable or command targets this Runtime."""
+        if os.name != "nt":
+            return 0
+
+        script = r"""
+$ErrorActionPreference = "Stop"
+$runtimeDirectory = [IO.Path]::GetFullPath(
+    $env:RAZOR_RUNTIME_CLEANUP_DIRECTORY
+).TrimEnd("\")
+$targets = @(
+    Get-Process -Name "python", "pythonw" -ErrorAction SilentlyContinue |
+        Where-Object {
+            $processPath = $null
+            try {
+                $processPath = $_.Path
+            } catch {}
+            $processPath -and
+                $processPath.StartsWith(
+                    $runtimeDirectory,
+                    [StringComparison]::OrdinalIgnoreCase
+                )
+        } |
+        Sort-Object Id -Unique
+)
+$killed = 0
+foreach ($target in $targets) {
+    $null = & taskkill.exe /PID $target.Id /T /F 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        $killed += 1
+    }
+}
+Write-Output $killed
+"""
+        cleanup_environment = os.environ.copy()
+        cleanup_environment["RAZOR_RUNTIME_CLEANUP_DIRECTORY"] = str(
+            self.runtime_directory
+        )
+        completed = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                script,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=cleanup_environment,
+            timeout=12,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        if completed.returncode != 0:
+            detail = completed.stderr.strip() or "unknown process cleanup error"
+            raise RuntimeError(
+                f"Unable to clean existing Runtime processes: {detail}"
+            )
+
+        output = completed.stdout.strip()
+        try:
+            return int(output.splitlines()[-1]) if output else 0
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Unable to read Runtime cleanup result: {output}"
+            ) from exc
+
     def start(self) -> dict[str, Any]:
         with self._lock:
             if self.running:
                 return self.status()
 
+            terminated_count = self._terminate_existing_runtime_processes()
+            if terminated_count:
+                # Give DirectShow and serial drivers a brief release window
+                # after Windows tears down the previous process tree.
+                time.sleep(0.5)
             command, environment = self._launch_command()
             with self._log_lock:
                 self._logs.clear()
@@ -354,6 +428,12 @@ class RuntimeProcess:
             )
             self._has_managed_session = True
             self._reported_exit_pid = None
+            if terminated_count:
+                self._append_log(
+                    30,
+                    "Console killed "
+                    f"{terminated_count} existing Runtime process tree(s).",
+                )
             self._append_log(
                 20,
                 f"Console started Runtime process {self._process.pid}.",
