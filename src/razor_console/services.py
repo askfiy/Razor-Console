@@ -7,7 +7,6 @@ import mmap
 import os
 from pathlib import Path
 import re
-import signal
 import struct
 import subprocess
 import tempfile
@@ -249,17 +248,24 @@ class RuntimeProcess:
 
             process = self._process
             if os.name == "nt":
+                # A Windows venv python.exe is a launcher process. Sending
+                # CTRL_BREAK can terminate that launcher while leaving the
+                # real base-Python child alive with devices such as COM ports
+                # still open. Kill the complete process tree while the tracked
+                # launcher PID still exists so every native device handle is
+                # released by the kernel.
+                subprocess.run(
+                    ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
                 try:
-                    process.send_signal(signal.CTRL_BREAK_EVENT)
                     process.wait(timeout=4)
-                except (OSError, subprocess.TimeoutExpired):
-                    subprocess.run(
-                        ["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                        check=False,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=subprocess.CREATE_NO_WINDOW,
-                    )
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=1)
             else:
                 process.terminate()
                 try:
