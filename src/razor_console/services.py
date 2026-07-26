@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from datetime import datetime
 import mmap
 import os
@@ -10,7 +11,7 @@ import re
 import struct
 import subprocess
 import tempfile
-from threading import Lock
+from threading import Lock, Thread
 import time
 from typing import Any
 
@@ -34,6 +35,18 @@ _LOG_TEXT_SIZE = 768
 _LOG_HEADER = struct.Struct("<Q")
 _LOG_SLOT = struct.Struct(f"<QQH{_LOG_TEXT_SIZE}s")
 _LOG_MAP_SIZE = _LOG_HEADER.size + _LOG_CAPACITY * _LOG_SLOT.size
+_CONTROL_MAP_NAME = "RazorConsole.Control.v1"
+_CONTROL_HEADER = struct.Struct("<Q")
+_CONTROL_MAP_SIZE = _CONTROL_HEADER.size
+_ANSI_ESCAPE_PATTERN = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
+_LOG_LEVEL_PATTERN = re.compile(r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s*:")
+_LOG_LEVELS = {
+    "DEBUG": 10,
+    "INFO": 20,
+    "WARNING": 30,
+    "ERROR": 40,
+    "CRITICAL": 50,
+}
 
 
 class ConfigStore:
@@ -166,12 +179,110 @@ class RuntimeProcess:
 
     def __init__(self, runtime_directory: Path) -> None:
         self.runtime_directory = runtime_directory.resolve()
-        self._process: subprocess.Popen[bytes] | None = None
+        self._process: subprocess.Popen[str] | None = None
         self._lock = Lock()
+        self._log_lock = Lock()
+        self._logs: deque[dict[str, Any]] = deque(maxlen=1000)
+        self._log_sequence = 0
+        self._legacy_log_sequence = 0
+        self._log_generation = 0
+        self._output_thread: Thread | None = None
+        self._has_managed_session = False
+        self._reported_exit_pid: int | None = None
+
+    def _append_log(self, level: int, text: str) -> None:
+        """Append one line from the managed Runtime process."""
+        clean_text = _ANSI_ESCAPE_PATTERN.sub("", text).rstrip()
+        if not clean_text:
+            return
+
+        with self._log_lock:
+            self._log_sequence += 1
+            self._logs.append(
+                {
+                    "sequence": self._log_sequence,
+                    "published_at_ms": time.time_ns() // 1_000_000,
+                    "level": int(level),
+                    "text": clean_text,
+                }
+            )
+
+    @staticmethod
+    def _line_level(text: str) -> int:
+        match = _LOG_LEVEL_PATTERN.match(text.lstrip())
+        if match is None:
+            return 20
+        return _LOG_LEVELS[match.group(1)]
+
+    def _capture_output(self, process: subprocess.Popen[str]) -> None:
+        """Drain Runtime output continuously so startup can never block on a pipe."""
+        output = process.stdout
+        if output is None:
+            return
+        try:
+            for line in output:
+                clean_line = _ANSI_ESCAPE_PATTERN.sub("", line).rstrip()
+                self._append_log(self._line_level(clean_line), clean_line)
+        finally:
+            output.close()
+
+    def _join_output_thread(self) -> None:
+        thread = self._output_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=1)
+
+    def _recent_log_text(self, limit: int = 12) -> str:
+        with self._log_lock:
+            records = list(self._logs)[-max(1, limit) :]
+        return "\n".join(str(record["text"]) for record in records)
+
+    @property
+    def has_managed_session(self) -> bool:
+        """Whether this Console has launched a Runtime in its current lifetime."""
+        return self._has_managed_session
+
+    @property
+    def log_generation(self) -> int:
+        """Return the current managed Runtime launch generation."""
+        return self._log_generation
+
+    def read_logs(
+        self,
+        after_sequence: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Read stdout/stderr records after a caller-owned sequence cursor."""
+        with self._log_lock:
+            cursor = (
+                self._legacy_log_sequence
+                if after_sequence is None
+                else max(0, int(after_sequence))
+            )
+            records = [
+                dict(record)
+                for record in self._logs
+                if int(record["sequence"]) > cursor
+            ]
+            if after_sequence is None and records:
+                self._legacy_log_sequence = int(records[-1]["sequence"])
+        return records
 
     @property
     def running(self) -> bool:
-        return self._process is not None and self._process.poll() is None
+        process = self._process
+        if process is None:
+            return False
+
+        exit_code = process.poll()
+        if exit_code is None:
+            return True
+
+        if self._reported_exit_pid != process.pid:
+            self._reported_exit_pid = process.pid
+            self._append_log(
+                40,
+                f"Runtime process {process.pid} exited with code {exit_code}.",
+            )
+        return False
 
     def status(self) -> dict[str, Any]:
         return {
@@ -185,6 +296,8 @@ class RuntimeProcess:
         environment.pop("VIRTUAL_ENV", None)
         environment.pop("PYTHONHOME", None)
         environment["PYTHONUNBUFFERED"] = "1"
+        environment["PYTHONIOENCODING"] = "utf-8"
+        environment["PYTHONUTF8"] = "1"
 
         if os.name == "nt":
             runtime_python = (
@@ -212,6 +325,11 @@ class RuntimeProcess:
                 return self.status()
 
             command, environment = self._launch_command()
+            with self._log_lock:
+                self._logs.clear()
+                self._log_sequence = 0
+                self._legacy_log_sequence = 0
+                self._log_generation += 1
             creation_flags = 0
             startup_info = None
             if os.name == "nt":
@@ -225,29 +343,63 @@ class RuntimeProcess:
                 cwd=self.runtime_directory,
                 env=environment,
                 stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
                 creationflags=creation_flags,
                 startupinfo=startup_info,
             )
+            self._has_managed_session = True
+            self._reported_exit_pid = None
+            self._append_log(
+                20,
+                f"Console started Runtime process {self._process.pid}.",
+            )
+            self._output_thread = Thread(
+                target=self._capture_output,
+                args=(self._process,),
+                name="RuntimeOutputReader",
+                daemon=True,
+            )
+            self._output_thread.start()
 
             try:
                 exit_code = self._process.wait(timeout=4.0)
             except subprocess.TimeoutExpired:
                 return self.status()
 
+            self._join_output_thread()
             self._process = None
-            raise RuntimeError(
-                f"Runtime exited during startup with code {exit_code}"
-            )
+            recent_logs = self._recent_log_text()
+            message = f"Runtime exited during startup with code {exit_code}"
+            if recent_logs:
+                message = f"{message}\n\n{recent_logs}"
+            raise RuntimeError(message)
 
-    def stop(self) -> dict[str, Any]:
+    def stop(self, *, graceful_requested: bool = False) -> dict[str, Any]:
         with self._lock:
             if not self.running or self._process is None:
                 return self.status()
 
             process = self._process
             if os.name == "nt":
+                if graceful_requested:
+                    try:
+                        process.wait(timeout=4)
+                    except subprocess.TimeoutExpired:
+                        pass
+                    else:
+                        self._join_output_thread()
+                        self._append_log(
+                            20,
+                            f"Runtime process {process.pid} stopped gracefully.",
+                        )
+                        self._process = None
+                        return self.status()
+
                 # A Windows venv python.exe is a launcher process. Sending
                 # CTRL_BREAK can terminate that launcher while leaving the
                 # real base-Python child alive with devices such as COM ports
@@ -272,6 +424,8 @@ class RuntimeProcess:
                     process.wait(timeout=4)
                 except subprocess.TimeoutExpired:
                     process.kill()
+            self._join_output_thread()
+            self._append_log(20, f"Console stopped Runtime process {process.pid}.")
             self._process = None
             return self.status()
 
@@ -288,6 +442,7 @@ class SharedBridgeReader:
         self._frame_mapping: mmap.mmap | None = None
         self._event_mapping: mmap.mmap | None = None
         self._log_mapping: mmap.mmap | None = None
+        self._control_mapping: mmap.mmap | None = None
         self._frame_max_age_ns = int(
             max(float(frame_max_age_seconds), 0.1) * 1_000_000_000
         )
@@ -325,8 +480,23 @@ class SharedBridgeReader:
             (self._log_sequence,) = _LOG_HEADER.unpack_from(
                 self._log_mapping, 0
             )
+            self._control_mapping = mmap.mmap(
+                -1,
+                _CONTROL_MAP_SIZE,
+                tagname=_CONTROL_MAP_NAME,
+                access=mmap.ACCESS_WRITE,
+            )
         except (OSError, ValueError):
             self.close()
+
+    def request_runtime_stop(self) -> bool:
+        """Request a cooperative Runtime shutdown through shared memory."""
+        mapping = self._control_mapping
+        if mapping is None:
+            return False
+        (stop_sequence,) = _CONTROL_HEADER.unpack_from(mapping, 0)
+        _CONTROL_HEADER.pack_into(mapping, 0, stop_sequence + 1)
+        return True
 
     def read_frame(self) -> bytes | None:
         """Return one coherent, fresh JPEG snapshot or ``None``."""
@@ -391,18 +561,26 @@ class SharedBridgeReader:
         self._event_sequence = write_sequence
         return events
 
-    def read_logs(self) -> list[dict[str, Any]]:
-        """Drain new Runtime logging records from the shared-memory ring."""
+    def read_logs(
+        self,
+        after_sequence: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Read Runtime logging records after a caller-owned sequence cursor."""
         mapping = self._log_mapping
         if mapping is None:
             return []
 
         (write_sequence,) = _LOG_HEADER.unpack_from(mapping, 0)
-        if write_sequence <= self._log_sequence:
+        cursor = (
+            self._log_sequence
+            if after_sequence is None
+            else max(0, int(after_sequence))
+        )
+        if write_sequence <= cursor:
             return []
 
         first_sequence = max(
-            self._log_sequence + 1,
+            cursor + 1,
             write_sequence - _LOG_CAPACITY + 1,
         )
         records: list[dict[str, Any]] = []
@@ -426,16 +604,20 @@ class SharedBridgeReader:
                     }
                 )
 
-        self._log_sequence = write_sequence
+        if after_sequence is None:
+            self._log_sequence = write_sequence
         return records
 
     def close(self) -> None:
         frame_mapping, self._frame_mapping = self._frame_mapping, None
         event_mapping, self._event_mapping = self._event_mapping, None
         log_mapping, self._log_mapping = self._log_mapping, None
+        control_mapping, self._control_mapping = self._control_mapping, None
         if frame_mapping is not None:
             frame_mapping.close()
         if event_mapping is not None:
             event_mapping.close()
         if log_mapping is not None:
             log_mapping.close()
+        if control_mapping is not None:
+            control_mapping.close()

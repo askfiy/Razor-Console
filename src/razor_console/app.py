@@ -136,7 +136,8 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
 
     @app.post("/api/runtime/stop", tags=["runtime"])
     async def stop_runtime() -> dict[str, Any]:
-        return runtime_process.stop()
+        graceful_requested = bridge_reader.request_runtime_stop()
+        return runtime_process.stop(graceful_requested=graceful_requested)
 
     sound_files = {
         "startup": "Windows Proximity Notification.wav",
@@ -179,9 +180,27 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
     async def bridge_events() -> dict[str, list[dict[str, Any]]]:
         return {"events": bridge_reader.read_sound_events()}
 
+    def read_runtime_logs(
+        after: int | None = None,
+    ) -> dict[str, Any]:
+        process_logs = runtime_process.read_logs(after)
+        bridge_logs = bridge_reader.read_logs(after)
+        if runtime_process.has_managed_session:
+            return {
+                "generation": runtime_process.log_generation,
+                "logs": process_logs,
+            }
+        return {"generation": 0, "logs": bridge_logs}
+
     @app.get("/api/bridge/logs", tags=["bridge"])
-    async def bridge_logs() -> dict[str, list[dict[str, Any]]]:
-        return {"logs": bridge_reader.read_logs()}
+    async def bridge_logs() -> dict[str, Any]:
+        # Compatibility route for pages loaded before Runtime process-output
+        # capture was introduced.
+        return read_runtime_logs()
+
+    @app.get("/api/runtime/logs", tags=["runtime"])
+    async def runtime_logs(after: int = 0) -> dict[str, Any]:
+        return read_runtime_logs(after)
 
     static_directory = Path(__file__).with_name("static")
     app.mount(

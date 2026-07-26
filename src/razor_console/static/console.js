@@ -7,6 +7,8 @@ const state = {
   original: "",
   bootContent: "",
   runtimeRunning: false,
+  runtimeLogGeneration: null,
+  runtimeLogSequence: 0,
   frameUrl: null,
   frameLive: false,
 };
@@ -488,8 +490,19 @@ function appendRuntimeLogs(records) {
 
 async function pollBridgeLogs() {
   try {
-    const payload = await api("/api/bridge/logs");
+    const payload = await api(`/api/runtime/logs?after=${state.runtimeLogSequence}`);
+    if (state.runtimeLogGeneration !== payload.generation) {
+      state.runtimeLogGeneration = payload.generation;
+      state.runtimeLogSequence = 0;
+      clearRuntimeLogs();
+      clearTimeout(bridgeLogTimer);
+      bridgeLogTimer = setTimeout(pollBridgeLogs, 0);
+      return;
+    }
     appendRuntimeLogs(payload.logs);
+    if (payload.logs.length) {
+      state.runtimeLogSequence = Number(payload.logs[payload.logs.length - 1].sequence);
+    }
   } catch {}
   clearTimeout(bridgeLogTimer);
   bridgeLogTimer = setTimeout(pollBridgeLogs, 250);
