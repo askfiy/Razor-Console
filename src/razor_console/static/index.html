@@ -105,7 +105,10 @@
         <section class="runtime-log panel">
           <header class="panel-header compact">
             <div><span class="eyebrow">Process output</span><h2>Runtime Log</h2></div>
-            <button id="clear-runtime-log">Clear</button>
+            <div class="panel-actions">
+              <button id="copy-runtime-log">Copy</button>
+              <button id="clear-runtime-log">Clear</button>
+            </div>
           </header>
           <div class="runtime-log-list" id="runtime-log-list">
             <div class="runtime-log-empty" id="runtime-log-empty">Waiting for Runtime logs...</div>
@@ -115,7 +118,10 @@
         <section class="activity panel">
           <header class="panel-header compact">
             <div><span class="eyebrow">Activity</span><h2>Console events</h2></div>
-            <button id="clear-events">Clear</button>
+            <div class="panel-actions">
+              <button id="copy-events">Copy</button>
+              <button id="clear-events">Clear</button>
+            </div>
           </header>
           <div class="event-list" id="event-list"></div>
         </section>

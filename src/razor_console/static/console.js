@@ -54,6 +54,41 @@ function toast(title, message = "") {
   toastTimer = setTimeout(() => $("#toast").classList.remove("visible"), 2600);
 }
 
+async function writeClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("Clipboard access is unavailable");
+}
+
+async function copyPanelItems(containerSelector, itemSelector, label) {
+  const lines = [...document.querySelectorAll(`${containerSelector} ${itemSelector}`)]
+    .map((item) => item.innerText.trim())
+    .filter(Boolean);
+  if (!lines.length) {
+    toast(`${label} is empty`);
+    return;
+  }
+
+  try {
+    await writeClipboard(lines.join("\n"));
+    toast(`${label} copied`);
+  } catch (error) {
+    toast(`Could not copy ${label.toLowerCase()}`, error.message);
+  }
+}
+
 function isDirty() {
   return state.content !== state.original;
 }
@@ -344,7 +379,7 @@ async function saveCurrent() {
     addEvent(`Saved ${state.mode === "boot" ? "boot.toml" : `${state.game}.toml`}`);
   } catch (error) {
     toast("TOML was not saved", error.message);
-    addEvent(`Save failed: ${error.message}`);
+    addEvent("Configuration save failed");
   }
 }
 
@@ -412,8 +447,9 @@ async function startRuntime() {
     const status = await api("/api/runtime/start", {method: "POST"});
     applyRuntimeStatus(status, true);
   } catch (error) {
-    toast("Runtime failed to start", error.message);
-    addEvent(`Start failed: ${error.message}`);
+    const summary = error.message.split(/\r?\n/, 1)[0];
+    toast("Runtime failed to start", summary);
+    addEvent("Runtime start failed");
     $("#start-button").disabled = false;
   }
 }
@@ -605,7 +641,13 @@ $("#create-game-button").addEventListener("click", (event) => { event.preventDef
 $("#delete-game-button").addEventListener("click", deleteGame);
 $("#start-button").addEventListener("click", startRuntime);
 $("#stop-button").addEventListener("click", stopRuntime);
+$("#copy-events").addEventListener("click", () => {
+  copyPanelItems("#event-list", ".event-item", "Console events");
+});
 $("#clear-events").addEventListener("click", () => { $("#event-list").innerHTML = ""; });
+$("#copy-runtime-log").addEventListener("click", () => {
+  copyPanelItems("#runtime-log-list", ".runtime-log-line", "Runtime log");
+});
 $("#clear-runtime-log").addEventListener("click", clearRuntimeLogs);
 $("#open-frame-button").addEventListener("click", openNativeFrame);
 $("#close-frame-dialog").addEventListener("click", () => $("#frame-dialog").close());
@@ -633,7 +675,7 @@ async function initialize() {
     addEvent("Razor Console ready");
   } catch (error) {
     toast("Console initialization failed", error.message);
-    addEvent(`Initialization failed: ${error.message}`);
+    addEvent("Console initialization failed");
   }
 }
 

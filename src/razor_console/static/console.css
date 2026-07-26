@@ -284,8 +284,9 @@ select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 .mini-pill.on { border-color: rgba(46,160,67,.36); background: var(--green-soft); color: #9ce2aa; }
 .runtime-log { display:grid;grid-template-rows:auto minmax(0,1fr); }
 .activity { display: grid; grid-template-rows: auto minmax(0,1fr); }
-.panel-header #clear-events,
-.panel-header #clear-runtime-log { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 10px; }
+.panel-actions { display:flex;align-items:center;gap:10px; }
+.panel-actions button { border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:10px; }
+.panel-actions button:hover { color:var(--text); }
 .runtime-log-list {
   height:100%;
   min-height:0;
