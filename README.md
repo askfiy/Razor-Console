@@ -43,7 +43,7 @@ Edit `.env` so it points to your Runtime checkout:
 ```dotenv
 RAZOR_CONSOLE_HOST=0.0.0.0
 RAZOR_CONSOLE_PORT=8765
-RAZOR_CONSOLE_RUNTIME_DIRECTORY=D:\Project\SuperAimBot
+RAZOR_CONSOLE_RUNTIME_DIRECTORY=D:\Project\Razor\Razor-Runtime
 ```
 
 Then start the service:

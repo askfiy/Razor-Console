@@ -20,7 +20,7 @@ class ConsoleSettings(BaseSettings):
 
     host: str = "0.0.0.0"
     port: int = 8765
-    runtime_directory: Path = Path(r"D:\Project\SuperAimBot")
+    runtime_directory: Path = Path(r"D:\Project\Razor\Razor-Runtime")
 
 
 settings = ConsoleSettings()

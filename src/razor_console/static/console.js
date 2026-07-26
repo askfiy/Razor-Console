@@ -277,8 +277,8 @@ function renderEditor() {
   $("#toml-editor").value = state.content;
   $("#editor-title").textContent = state.mode === "boot" ? "boot.toml" : `${state.game}.toml`;
   $("#editor-path").textContent = state.mode === "boot"
-    ? "D:\\Project\\SuperAimBot\\boot.toml"
-    : `D:\\Project\\SuperAimBot\\config\\${state.game}.toml`;
+    ? "D:\\Project\\Razor\\Razor-Runtime\\boot.toml"
+    : `D:\\Project\\Razor\\Razor-Runtime\\config\\${state.game}.toml`;
   $("#boot-button").classList.toggle("active", state.mode === "boot");
   $("#frame-profile").textContent = `${state.activeLoader || state.game || "unknown"}.toml`;
   setDirtyState();
