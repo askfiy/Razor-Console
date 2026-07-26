@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -38,6 +38,13 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
     config_store = ConfigStore(active_settings.runtime_directory)
     runtime_process = RuntimeProcess(active_settings.runtime_directory)
     bridge_reader = SharedBridgeReader()
+
+    @app.middleware("http")
+    async def disable_console_asset_cache(request: Request, call_next):
+        response = await call_next(request)
+        if not request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.on_event("shutdown")
     async def close_bridge_reader() -> None:

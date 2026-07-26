@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>Razor Console</title>
-  <link rel="stylesheet" href="/console.css">
+  <link rel="stylesheet" href="/console.css?v=2">
 </head>
 <body class="runtime-off">
   <div class="ambient"></div>
@@ -106,8 +106,8 @@
           <header class="panel-header compact">
             <div><span class="eyebrow">Process output</span><h2>Runtime Log</h2></div>
             <div class="panel-actions">
-              <button id="copy-runtime-log">Copy</button>
-              <button id="clear-runtime-log">Clear</button>
+              <button class="panel-action-button" id="copy-runtime-log">Copy</button>
+              <button class="panel-action-button" id="clear-runtime-log">Clear</button>
             </div>
           </header>
           <div class="runtime-log-list" id="runtime-log-list">
@@ -119,8 +119,8 @@
           <header class="panel-header compact">
             <div><span class="eyebrow">Activity</span><h2>Console events</h2></div>
             <div class="panel-actions">
-              <button id="copy-events">Copy</button>
-              <button id="clear-events">Clear</button>
+              <button class="panel-action-button" id="copy-events">Copy</button>
+              <button class="panel-action-button" id="clear-events">Clear</button>
             </div>
           </header>
           <div class="event-list" id="event-list"></div>
@@ -162,6 +162,6 @@
   </dialog>
 
   <div class="toast" id="toast"><strong id="toast-title"></strong><span id="toast-message"></span></div>
-  <script src="/console.js"></script>
+  <script src="/console.js?v=2"></script>
 </body>
 </html>
