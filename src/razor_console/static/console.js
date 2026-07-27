@@ -289,7 +289,7 @@ function syncFrameSetting() {
 function scheduleFramePoll(active) {
   clearTimeout(frameTimer);
   if (!active) return;
-  frameTimer = setTimeout(fetchFrame, 100);
+  frameTimer = setTimeout(fetchFrame, 1000 / 60);
 }
 
 async function fetchFrame() {
