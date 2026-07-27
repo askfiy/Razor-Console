@@ -262,8 +262,7 @@ function parseBridgeEnabled(content) {
 function syncFrameSetting() {
   const enabled = parseBridgeEnabled(state.bootContent);
   const hasLiveFrame = enabled && state.frameLive && state.frameUrl;
-  $("#frame-state").textContent = `bridge.enabled = ${enabled}`;
-  $("#frame-state").className = `mini-pill ${enabled ? "on" : "off"}`;
+  $("#preview-fps").disabled = !enabled;
   $("#frame-stage").classList.toggle("disabled", !enabled);
   const placeholder = $("#frame-placeholder");
   if (!enabled) {
