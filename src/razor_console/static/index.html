@@ -130,16 +130,12 @@
   </main>
 
   <dialog id="frame-dialog" class="frame-dialog">
-    <header>
-      <div>
-        <span class="eyebrow">Native frame</span>
-        <h2>Runtime imgsz <small id="native-frame-size">waiting</small></h2>
-      </div>
-      <button class="dialog-close" id="close-frame-dialog" aria-label="Close">×</button>
-    </header>
-    <div class="native-frame-viewport">
-      <div class="native-frame-canvas">
-        <img id="native-frame-image" alt="Runtime frame at native imgsz">
+    <div class="frame-player">
+      <img id="native-frame-image" alt="Live Runtime preview">
+      <div class="frame-player-controls">
+        <span class="frame-player-live"><i></i>LIVE</span>
+        <span id="native-frame-size">waiting</span>
+        <button class="frame-player-close" id="close-frame-dialog" aria-label="Close preview">×</button>
       </div>
     </div>
   </dialog>
