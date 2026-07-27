@@ -273,13 +273,13 @@ select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
   min-height: 0;
 }
 .frame-panel { display:grid;grid-template-rows:auto minmax(0,1fr); }
-.frame-panel .panel-header { flex-wrap:wrap; }
+.frame-panel .panel-header { flex-wrap:nowrap; }
 .frame-header-actions {
   display:flex;
   align-items:center;
   justify-content:flex-end;
   gap:7px;
-  width:100%;
+  width:auto;
   margin-left:auto;
 }
 .preview-fps-select {

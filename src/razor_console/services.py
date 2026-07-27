@@ -266,6 +266,13 @@ class RuntimeProcess:
                 self._legacy_log_sequence = int(records[-1]["sequence"])
         return records
 
+    def clear_logs(self) -> int:
+        """Discard buffered process logs and return the current sequence."""
+        with self._log_lock:
+            self._logs.clear()
+            self._legacy_log_sequence = self._log_sequence
+            return self._log_sequence
+
     @property
     def running(self) -> bool:
         process = self._process
@@ -531,6 +538,7 @@ class SharedBridgeReader:
         )
         self._event_sequence = 0
         self._log_sequence = 0
+        self._log_clear_sequence = 0
 
         if os.name != "nt":
             return
@@ -656,6 +664,7 @@ class SharedBridgeReader:
             if after_sequence is None
             else max(0, int(after_sequence))
         )
+        cursor = max(cursor, self._log_clear_sequence)
         if write_sequence <= cursor:
             return []
 
@@ -687,6 +696,16 @@ class SharedBridgeReader:
         if after_sequence is None:
             self._log_sequence = write_sequence
         return records
+
+    def clear_logs(self) -> int:
+        """Advance the shared-log cursor past every currently published record."""
+        mapping = self._log_mapping
+        if mapping is None:
+            return self._log_sequence
+        (write_sequence,) = _LOG_HEADER.unpack_from(mapping, 0)
+        self._log_sequence = write_sequence
+        self._log_clear_sequence = write_sequence
+        return write_sequence
 
     def close(self) -> None:
         frame_mapping, self._frame_mapping = self._frame_mapping, None

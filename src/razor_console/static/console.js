@@ -586,8 +586,7 @@ function readRuntimeLogClearBoundary(generation) {
   }
 }
 
-function rememberRuntimeLogClear() {
-  clearRuntimeLogs();
+function storeRuntimeLogClearBoundary() {
   if (state.runtimeLogGeneration === null) return;
   try {
     localStorage.setItem(RUNTIME_LOG_CLEAR_STORAGE_KEY, JSON.stringify({
@@ -595,6 +594,21 @@ function rememberRuntimeLogClear() {
       sequence: state.runtimeLogSequence,
     }));
   } catch {}
+}
+
+async function rememberRuntimeLogClear() {
+  clearTimeout(bridgeLogTimer);
+  clearRuntimeLogs();
+  try {
+    const payload = await api("/api/runtime/logs/clear", {method: "POST"});
+    state.runtimeLogGeneration = Number(payload.generation);
+    state.runtimeLogSequence = Number(payload.sequence);
+  } catch {
+    // Keep the visible clear boundary even if the service became unavailable.
+  }
+  storeRuntimeLogClearBoundary();
+  clearRuntimeLogs();
+  bridgeLogTimer = setTimeout(pollBridgeLogs, 250);
 }
 
 function openNativeFrame() {
@@ -689,7 +703,7 @@ $("#stop-button").addEventListener("click", stopRuntime);
 $("#copy-events").addEventListener("click", () => {
   copyPanelItems("#event-list", ".event-item", "Console events");
 });
-$("#clear-events").addEventListener("click", () => { $("#event-list").innerHTML = ""; });
+$("#clear-events").addEventListener("click", () => { $("#event-list").replaceChildren(); });
 $("#copy-runtime-log").addEventListener("click", () => {
   copyPanelItems("#runtime-log-list", ".runtime-log-line", "Runtime log");
 });
@@ -721,7 +735,6 @@ async function initialize() {
     await pollRuntime();
     await pollBridgeEvents();
     await pollBridgeLogs();
-    addEvent("Razor Console ready");
   } catch (error) {
     toast("Console initialization failed", error.message);
     addEvent("Console initialization failed");

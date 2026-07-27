@@ -209,6 +209,18 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
     async def runtime_logs(after: int = 0) -> dict[str, Any]:
         return read_runtime_logs(after)
 
+    @app.post("/api/runtime/logs/clear", tags=["runtime"])
+    async def clear_runtime_logs() -> dict[str, int]:
+        if runtime_process.has_managed_session:
+            return {
+                "generation": runtime_process.log_generation,
+                "sequence": runtime_process.clear_logs(),
+            }
+        return {
+            "generation": 0,
+            "sequence": bridge_reader.clear_logs(),
+        }
+
     static_directory = Path(__file__).with_name("static")
     app.mount(
         "/",
