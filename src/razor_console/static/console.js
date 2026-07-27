@@ -11,9 +11,13 @@ const state = {
   runtimeLogSequence: 0,
   frameUrl: null,
   frameLive: false,
+  previewFps: 60,
 };
 
 const $ = (selector) => document.querySelector(selector);
+const PREVIEW_FPS_VALUES = new Set([30, 60, 90, 120, 240]);
+const PREVIEW_FPS_STORAGE_KEY = "razor-console.preview-fps";
+const RUNTIME_LOG_CLEAR_STORAGE_KEY = "razor-console.runtime-log-clear";
 let toastTimer;
 let frameTimer;
 let runtimeTimer;
@@ -289,7 +293,27 @@ function syncFrameSetting() {
 function scheduleFramePoll(active) {
   clearTimeout(frameTimer);
   if (!active) return;
-  frameTimer = setTimeout(fetchFrame, 1000 / 60);
+  frameTimer = setTimeout(fetchFrame, 1000 / state.previewFps);
+}
+
+function setPreviewFps(value, persist = true) {
+  const fps = Number(value);
+  state.previewFps = PREVIEW_FPS_VALUES.has(fps) ? fps : 60;
+  $("#preview-fps").value = String(state.previewFps);
+  if (persist) {
+    try {
+      localStorage.setItem(PREVIEW_FPS_STORAGE_KEY, String(state.previewFps));
+    } catch {}
+  }
+  scheduleFramePoll(parseBridgeEnabled(state.bootContent));
+}
+
+function restorePreviewFps() {
+  try {
+    setPreviewFps(localStorage.getItem(PREVIEW_FPS_STORAGE_KEY), false);
+  } catch {
+    setPreviewFps(60, false);
+  }
 }
 
 async function fetchFrame() {
@@ -530,7 +554,7 @@ async function pollBridgeLogs() {
     const payload = await api(`/api/runtime/logs?after=${state.runtimeLogSequence}`);
     if (state.runtimeLogGeneration !== payload.generation) {
       state.runtimeLogGeneration = payload.generation;
-      state.runtimeLogSequence = 0;
+      state.runtimeLogSequence = readRuntimeLogClearBoundary(payload.generation);
       clearRuntimeLogs();
       clearTimeout(bridgeLogTimer);
       bridgeLogTimer = setTimeout(pollBridgeLogs, 0);
@@ -551,6 +575,27 @@ function clearRuntimeLogs() {
   empty.id = "runtime-log-empty";
   empty.textContent = "Waiting for Runtime logs...";
   $("#runtime-log-list").replaceChildren(empty);
+}
+
+function readRuntimeLogClearBoundary(generation) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(RUNTIME_LOG_CLEAR_STORAGE_KEY));
+    if (Number(saved?.generation) !== Number(generation)) return 0;
+    return Math.max(0, Number(saved?.sequence) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function rememberRuntimeLogClear() {
+  clearRuntimeLogs();
+  if (state.runtimeLogGeneration === null) return;
+  try {
+    localStorage.setItem(RUNTIME_LOG_CLEAR_STORAGE_KEY, JSON.stringify({
+      generation: state.runtimeLogGeneration,
+      sequence: state.runtimeLogSequence,
+    }));
+  } catch {}
 }
 
 function openNativeFrame() {
@@ -649,7 +694,10 @@ $("#clear-events").addEventListener("click", () => { $("#event-list").innerHTML 
 $("#copy-runtime-log").addEventListener("click", () => {
   copyPanelItems("#runtime-log-list", ".runtime-log-line", "Runtime log");
 });
-$("#clear-runtime-log").addEventListener("click", clearRuntimeLogs);
+$("#clear-runtime-log").addEventListener("click", rememberRuntimeLogClear);
+$("#preview-fps").addEventListener("change", (event) => {
+  setPreviewFps(event.target.value);
+});
 $("#open-frame-button").addEventListener("click", openNativeFrame);
 $("#close-frame-dialog").addEventListener("click", () => $("#frame-dialog").close());
 $("#native-frame-image").addEventListener("load", (event) => {
@@ -668,6 +716,7 @@ async function initialize() {
     state.content = boot.content;
     state.original = boot.content;
     state.bootContent = boot.content;
+    restorePreviewFps();
     renderEditor();
     syncFrameSetting();
     await pollRuntime();
@@ -677,6 +726,13 @@ async function initialize() {
   } catch (error) {
     toast("Console initialization failed", error.message);
     addEvent("Console initialization failed");
+  } finally {
+    try {
+      await document.fonts?.ready;
+    } catch {}
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => document.body.classList.remove("app-loading"));
+    });
   }
 }
 

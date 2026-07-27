@@ -5,9 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>Razor Console</title>
+  <style>
+    html, body { background: #0d1117; }
+    body.app-loading .shell,
+    body.app-loading .ambient { visibility: hidden; }
+    body.app-loading .app-loading-screen { display: grid; }
+  </style>
   <link rel="stylesheet" href="/console.css?v=2">
 </head>
-<body class="runtime-off">
+<body class="runtime-off app-loading">
+  <div class="app-loading-screen" aria-live="polite">
+    <div class="app-loading-mark">RZ</div>
+    <span>Loading Razor Console...</span>
+  </div>
   <div class="ambient"></div>
   <main class="shell">
     <header class="topbar">
@@ -83,8 +93,20 @@
               <span class="eyebrow">Frame output</span>
               <h2>Preview</h2>
             </div>
+            <span class="mini-pill off" id="frame-state">bridge.enabled = false</span>
             <div class="frame-header-actions">
-              <span class="mini-pill off" id="frame-state">bridge.enabled = false</span>
+              <select class="preview-fps-select" id="preview-fps" aria-label="Preview FPS">
+                <option value="30">30 FPS</option>
+                <option value="60" selected>60 FPS</option>
+                <option value="90">90 FPS</option>
+                <option value="120">120 FPS</option>
+                <option value="240">240 FPS</option>
+              </select>
+              <span
+                class="preview-fps-help"
+                title="Browser Preview refresh rate only. Actual FPS depends on the incoming Runtime frame stream."
+                aria-label="Preview FPS help"
+              >?</span>
               <button class="frame-expand-button" id="open-frame-button" title="Show native imgsz frame" disabled>&lt;&gt;</button>
             </div>
           </header>

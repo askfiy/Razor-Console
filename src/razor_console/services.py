@@ -185,7 +185,7 @@ class RuntimeProcess:
         self._logs: deque[dict[str, Any]] = deque(maxlen=1000)
         self._log_sequence = 0
         self._legacy_log_sequence = 0
-        self._log_generation = 0
+        self._log_generation = int(time.time() * 1000)
         self._output_thread: Thread | None = None
         self._has_managed_session = False
         self._reported_exit_pid: int | None = None
