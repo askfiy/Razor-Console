@@ -42,12 +42,21 @@ async function api(url, options = {}) {
 }
 
 function addEvent(message) {
+  $("#event-list-empty")?.remove();
   const item = document.createElement("div");
   item.className = "event-item";
   const now = new Date();
   item.innerHTML = `<time>${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</time><span></span>`;
   item.querySelector("span").textContent = message;
   $("#event-list").prepend(item);
+}
+
+function clearConsoleEvents() {
+  const empty = document.createElement("div");
+  empty.className = "event-list-empty";
+  empty.id = "event-list-empty";
+  empty.textContent = "Waiting for Console events...";
+  $("#event-list").replaceChildren(empty);
 }
 
 function toast(title, message = "") {
@@ -703,7 +712,7 @@ $("#stop-button").addEventListener("click", stopRuntime);
 $("#copy-events").addEventListener("click", () => {
   copyPanelItems("#event-list", ".event-item", "Console events");
 });
-$("#clear-events").addEventListener("click", () => { $("#event-list").replaceChildren(); });
+$("#clear-events").addEventListener("click", clearConsoleEvents);
 $("#copy-runtime-log").addEventListener("click", () => {
   copyPanelItems("#runtime-log-list", ".runtime-log-line", "Runtime log");
 });

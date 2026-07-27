@@ -364,7 +364,8 @@ select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
   background:rgba(5,8,12,.48);
   font:10px/1.55 var(--mono);
 }
-.runtime-log-empty { padding:10px 2px;color:var(--faint); }
+.runtime-log-empty,
+.event-list-empty { padding:10px 2px;color:var(--faint); }
 .runtime-log-line {
   display:grid;
   grid-template-columns:62px 44px minmax(0,1fr);
