@@ -214,7 +214,8 @@ select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
   border-right: 1px solid rgba(139,148,158,.13);
   color: #484f58;
   background: rgba(13,17,23,.55);
-  font: 12px/1.65 var(--mono);
+  font: 12px/20px var(--mono);
+  font-variant-ligatures: none;
   text-align: right;
   user-select: none;
 }
@@ -234,7 +235,8 @@ select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
   margin: 0;
   padding: 18px 20px 60px;
   border: 0;
-  font: 12px/1.65 var(--mono);
+  font: 12px/20px var(--mono);
+  font-variant-ligatures: none;
   tab-size: 2;
   white-space: pre;
 }
