@@ -509,6 +509,30 @@ dialog footer { justify-content:flex-end;border-top:1px solid var(--line); }
     grid-template-columns:1fr;
     grid-template-rows:auto repeat(2,minmax(240px,32vh));
   }
-  .editor-surface { grid-template-columns:42px 1fr; }
-  .editor-code { min-height:600px; }
+  .editor {
+    height:620px;
+    height:clamp(480px,72dvh,720px);
+    min-height:0;
+  }
+  .editor-surface {
+    min-height:0;
+    grid-template-columns:42px minmax(0,1fr);
+  }
+  .editor-code {
+    height:100%;
+    min-height:0;
+  }
+  .line-numbers,
+  #toml-highlight,
+  #toml-editor {
+    padding-bottom:96px;
+    padding-bottom:max(96px,calc(72px + env(safe-area-inset-bottom)));
+  }
+  #toml-editor {
+    overflow-x:auto;
+    overflow-y:scroll;
+    overscroll-behavior:contain;
+    touch-action:pan-x pan-y;
+    -webkit-overflow-scrolling:touch;
+  }
 }
