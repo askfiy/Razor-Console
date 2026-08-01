@@ -262,23 +262,29 @@ function updateCursor() {
   $("#cursor-position").textContent = `Ln ${lines.length}, Col ${lines.at(-1).length + 1}`;
 }
 
-function parseBridgeEnabled(content) {
+function parseBridgeSettings(content) {
   const bridgeMatch = content.match(/(?:^|\n)\s*\[bridge\]([\s\S]*?)(?=\n\s*\[|$)/i);
-  if (!bridgeMatch) return false;
-  return /(?:^|\n)\s*enabled\s*=\s*true(?:\s*(?:#.*)?)?(?:\n|$)/i.test(bridgeMatch[1]);
+  if (!bridgeMatch) return {available: false, preview: false};
+  const preview = /(?:^|\n)\s*open_preview\s*=\s*true(?:\s*(?:#.*)?)?(?:\n|$)/i.test(bridgeMatch[1]);
+  return {available: true, preview};
 }
 
 function syncFrameSetting() {
-  const enabled = parseBridgeEnabled(state.bootContent);
-  const hasLiveFrame = enabled && state.frameLive && state.frameUrl;
-  $("#preview-fps").disabled = !enabled;
-  $("#frame-stage").classList.toggle("disabled", !enabled);
+  const bridge = parseBridgeSettings(state.bootContent);
+  const hasLiveFrame = bridge.preview && state.frameLive && state.frameUrl;
+  $("#preview-fps").disabled = !bridge.preview;
+  $("#frame-stage").classList.toggle("disabled", !bridge.preview);
   const placeholder = $("#frame-placeholder");
-  if (!enabled) {
+  if (!bridge.available) {
+    $("#frame-image").hidden = true;
+    placeholder.hidden = false;
+    placeholder.querySelector("strong").textContent = "Runtime bridge disabled";
+    placeholder.querySelector("span").innerHTML = "Add or uncomment <code>[bridge]</code> in boot.toml";
+  } else if (!bridge.preview) {
     $("#frame-image").hidden = true;
     placeholder.hidden = false;
     placeholder.querySelector("strong").textContent = "Frame output disabled";
-    placeholder.querySelector("span").innerHTML = "Set <code>bridge.enabled = true</code> in boot.toml";
+    placeholder.querySelector("span").innerHTML = "Set <code>open_preview = true</code> under <code>[bridge]</code>";
   } else if (hasLiveFrame) {
     $("#frame-image").hidden = false;
     placeholder.hidden = true;
@@ -293,9 +299,9 @@ function syncFrameSetting() {
     placeholder.querySelector("strong").textContent = "Waiting for frame stream";
     placeholder.querySelector("span").textContent = "The output bridge will publish the latest frame here";
   }
-  $("#frame-connection").textContent = hasLiveFrame ? "live" : enabled ? "waiting" : "offline";
+  $("#frame-connection").textContent = hasLiveFrame ? "live" : bridge.preview ? "waiting" : "offline";
   $("#open-frame-button").disabled = !hasLiveFrame;
-  scheduleFramePoll(enabled);
+  scheduleFramePoll(bridge.preview);
 }
 
 function scheduleFramePoll(active) {
@@ -313,7 +319,7 @@ function setPreviewFps(value, persist = true) {
       localStorage.setItem(PREVIEW_FPS_STORAGE_KEY, String(state.previewFps));
     } catch {}
   }
-  scheduleFramePoll(parseBridgeEnabled(state.bootContent));
+  scheduleFramePoll(parseBridgeSettings(state.bootContent).preview);
 }
 
 function restorePreviewFps() {
@@ -325,7 +331,7 @@ function restorePreviewFps() {
 }
 
 async function fetchFrame() {
-  if (!parseBridgeEnabled(state.bootContent)) return;
+  if (!parseBridgeSettings(state.bootContent).preview) return;
   try {
     const response = await fetch(`/api/frame?t=${Date.now()}`, {cache: "no-store"});
     if (response.ok && response.status !== 204 && response.headers.get("content-type")?.startsWith("image/")) {

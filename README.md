@@ -60,21 +60,25 @@ Razor Runtime must enable its core Bridge in `boot.toml`:
 
 ```toml
 [bridge]
-enabled = true
 transport = "shared_memory"
+open_preview = false
 ```
 
-When enabled, the Bridge publishes all supported outputs:
+The presence of the `[bridge]` section enables the Bridge. Comment out or
+remove the complete section when Razor Console is not connected. While present,
+the Bridge publishes these supported outputs:
 
-- final rendered frames
 - sound events
 - Python logging records
+
+Set `open_preview = true` to additionally publish final rendered frames.
 
 There are no separate `frame` or `sound_events` switches. Runtime logs are
 transported in memory and Razor Console does not create a Runtime log file.
 
-`render.is_show` controls only the local OpenCV window. `bridge.enabled`
-controls external frame delivery independently.
+`render.is_show` controls only the local OpenCV window. `bridge.open_preview`
+controls external frame delivery independently without disabling sound events,
+logging records, or Console stop requests.
 
 ## Process Model
 
