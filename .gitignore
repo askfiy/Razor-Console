@@ -17,3 +17,6 @@ wheels/
 .env
 .console-settings.json
 .console-settings.tmp
+.logs/
+.console-aliases.json
+.console-aliases.tmp

@@ -22,7 +22,10 @@ and stream Runtime logs without writing a log file.
 - Group multiple selector classes under the same label; include pickers exclude
   the class itself. Label buttons select all classes in that group.
 - Define class aliases in the inference panel. Aliases replace class names in
-  pickers and are stored per profile in this browser only, outside Runtime TOML.
+  pickers and are saved per Runtime and profile in `.console-aliases.json`,
+  outside Runtime TOML. All browsers share these names; Save and Discard apply
+  to alias edits as well. Existing names from the current browser origin are
+  loaded as a draft when no server aliases exist; click Save to migrate them.
 - Choose an ONNX or TensorRT model with the native file chooser on the Console
   host. Engine choices are ONNX Runtime and TensorRT YOLO.
 - Edit Visual Recoil HSV bounds in numeric H/S/V boxes, without sliders.
@@ -155,3 +158,20 @@ The response includes the configured Runtime directory and whether it exists.
 ## License
 
 Educational and research purposes only.
+
+## Windows autostart
+
+After `uv sync`, install background startup for the current Windows user:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\autostart.ps1 Install
+```
+
+Console starts without a terminal window when you sign in. It uses the normal
+`.env` settings (default port 8765) and does not start Runtime automatically.
+Logs are written to `.logs/startup.log`. If the configured port is occupied,
+startup is skipped. Keep the checkout and its virtual environment in place;
+rerun Install if you move them.
+
+Use the same command with `Start` to launch now, or `Uninstall` to remove login
+startup. Uninstall does not stop an already running service.

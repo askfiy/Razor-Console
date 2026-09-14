@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .forms import describe, transform
+from .aliases import class_aliases
 from .model_picker import choose_model, choose_runtime
 from .services import ConfigStore, RuntimeProcess, SharedBridgeReader
 from .settings import ConsoleSettings, save_runtime_directory, settings
@@ -27,6 +28,11 @@ class ConfigContent(BaseModel):
 class FormDraft(BaseModel):
     content: str
     changes: list[dict[str, Any]] = []
+
+
+class ClassAliases(BaseModel):
+    aliases: dict[str, str]
+    expected: dict[str, str] | None = None
 
 
 class CreateGameConfig(BaseModel):
@@ -141,6 +147,20 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         finally:
             model_picker_lock.release()
+
+    @app.get("/api/aliases/{name}", tags=["configuration"])
+    def get_aliases(name: str):
+        return {"aliases": class_aliases(active_settings.runtime_directory, name)}
+
+    @app.put("/api/aliases/{name}", tags=["configuration"])
+    def put_aliases(name: str, payload: ClassAliases):
+        if any(not key.isdecimal() for key in payload.aliases):
+            raise HTTPException(status_code=400, detail="类别 ID 必须为非负整数")
+        value = {str(int(key)): alias.strip() for key, alias in payload.aliases.items() if alias.strip()}
+        try:
+            return {"aliases": class_aliases(active_settings.runtime_directory, name, value, payload.expected)}
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/api/forms/draft", tags=["configuration"])
     async def form_draft(payload: FormDraft) -> dict[str, Any]:

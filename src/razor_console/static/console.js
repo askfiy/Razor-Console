@@ -247,7 +247,8 @@ const clone = x => structuredClone(x);
 const section = (scope, name) => state[scope]?.sections.find(s => s.name === name);
 const data = (scope, name) => section(scope, name)?.data || {};
 const dirty = scope => state[scope] && state[scope].content !== state[scope].original;
-const anyDirty = () => dirty('boot') || dirty('game');
+const aliasesDirty = () => changedValues(state.savedAliases || {}, state.aliases || {}) > 0;
+const anyDirty = () => dirty('boot') || dirty('game') || aliasesDirty();
 
 function notify(message) {
     const host = document.querySelector('dialog[open]') || document.body;
@@ -338,7 +339,18 @@ async function readScope(scope, name) {
         ...await parse(result.content),
         original: result.content
     };
-    state[scope].savedSections = clone(state[scope].sections)
+    state[scope].savedSections = clone(state[scope].sections);
+    if (scope === 'game') {
+        const result = await api(`/api/aliases/${encodeURIComponent(name)}`);
+        state.savedAliases = clone(result.aliases);
+        state.aliases = clone(result.aliases);
+        if (!Object.keys(result.aliases).length) {
+            try {
+                const legacy = JSON.parse(localStorage.getItem(`razor-console.aliases.${name}`) || '{}');
+                if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) state.aliases = legacy;
+            } catch {}
+        }
+    }
 }
 async function syncSwitch(scope, changes) {
     const current = state[scope];
@@ -387,7 +399,7 @@ function unsavedChanges() {
 }
 function renderSave() {
     const pending = state.modal?.changed ? state.modal.sections.reduce((total, entry) => total + (entry.changed || entry.rawChanged ? Math.max(1, changedValues(entry.original?.data, entry.data)) : 0), 0) + Number(state.modal.aliasesChanged) : 0;
-    const count = unsavedChanges() + pending;
+    const count = unsavedChanges() + changedValues(state.savedAliases || {}, state.aliases || {}) + pending;
     const bar = $('.savebar');
     bar.hidden = !count;
     if (count && $('#drawer').open && !bar.matches(':popover-open')) bar.showPopover();
@@ -648,7 +660,7 @@ const explanations = {
     dn: '按键按下时发送的设备报告。', up: '按键释放时发送的设备报告。', mapping: '输入与输出的对应关系。',
     '设备类型': '选择连接的硬件设备，仅启用选中的设备配置。',
     class_id: '模型输出的数字类别编号，从 0 开始。', class: '选择此规则对应的模型类别。',
-    alias: '类别的显示名称；留空时显示类别编号。别名保存在当前浏览器，不修改模型类别。',
+    alias: '类别的显示名称；留空时显示类别编号。别名保存在 Console 本地配置中，所有浏览器共用，不修改模型类别。',
     threshold: '检测结果的最低置信度，低于该值的结果会被过滤。',
     dynamic_threshold: '开火时使用的置信度阈值。', nms_threshold: 'NMS 重叠过滤阈值，用于去除重复检测框。',
     engine: '选择加载模型所使用的推理引擎。', model_path: '选择 Console 所在电脑上的 ONNX 或 TensorRT 模型文件。',
@@ -911,12 +923,7 @@ const rowDefaults = {
 };
 
 function readAliases() {
-    try {
-        const value = JSON.parse(localStorage.getItem(`razor-console.aliases.${state.name}`) || '{}');
-        return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-    } catch {
-        return {};
-    }
+    return clone(state.aliases || {});
 }
 
 function classLabels() {
@@ -1627,7 +1634,7 @@ async function closeDrawer(close = true) {
         const devices = sections.filter(s => isHardwareDevice(s.name));
         if (scope === 'boot' && devices.length && devices.filter(s => s.enabled).length !== 1) throw Error('请选择一个硬件设备。');
         if (changes.length) await patch(scope, changes, close);
-        if (state.modal.aliasesChanged) localStorage.setItem(`razor-console.aliases.${state.name}`, JSON.stringify(state.modal.aliases));
+        if (state.modal.aliasesChanged) state.aliases = clone(state.modal.aliases);
         for (const entry of sections) {
             entry.original = section(scope, entry.name);
             entry.edits = {};
@@ -1693,7 +1700,7 @@ $('#use-profile').onclick = () => task(() => patch('boot', [{
     }
 }]));
 async function switchProfile(name, force = false) {
-    if (!force && dirty('game') && !(await ask('放弃当前游戏配置的未保存修改？'))) {
+    if (!force && (dirty('game') || aliasesDirty()) && !(await ask('放弃当前游戏配置的未保存修改？'))) {
         $('#profile').value = state.name;
         return
     }
@@ -1765,6 +1772,14 @@ async function saveAll() {
             state[scope].savedSections = clone(state[scope].sections);
             eventLog(`已保存 ${scope==='boot'?'boot.toml':state.name+'.toml'}`)
         }
+        if (aliasesDirty()) {
+            const result = await api(`/api/aliases/${encodeURIComponent(state.name)}`, {
+                method: 'PUT', body: JSON.stringify({aliases: state.aliases, expected: state.savedAliases})
+            });
+            state.aliases = clone(result.aliases);
+            state.savedAliases = clone(result.aliases);
+            try { localStorage.removeItem(`razor-console.aliases.${state.name}`); } catch {}
+        }
         renderSave();
         notify('配置已保存')
     })
@@ -1772,6 +1787,7 @@ async function saveAll() {
 $('#save').onclick = event => { event.preventDefault(); saveAll(); };
 $('#discard').onclick = () => task(async () => {
     stopWatch();
+    state.aliases = clone(state.savedAliases || {});
     for (const scope of ['boot', 'game']) {
         if (!state[scope]) continue;
         state[scope].content = state[scope].original;
@@ -2031,9 +2047,16 @@ $('#unbind-runtime').onclick = () => task(async () => {
 initialize();
 
 // Keep native select values/events while drawing menus consistently across devices.
+const selectMenus = new WeakMap();
 function openSelectMenu(select) {
     if (select.disabled || state.busy) return;
+    const currentMenu = selectMenus.get(select);
+    if (currentMenu?.matches(':popover-open')) {
+        currentMenu.hidePopover();
+        return;
+    }
     const menu = node('div', 'select-menu');
+    selectMenus.set(select, menu);
     menu.setAttribute('popover', 'auto');
     menu.setAttribute('role', 'listbox');
     menu.setAttribute('aria-label', select.getAttribute('aria-label') || '选择选项');
@@ -2094,8 +2117,10 @@ function openSelectMenu(select) {
     (enabled.find(button => button.getAttribute('aria-selected') === 'true') || enabled[0])?.focus({preventScroll: true});
 }
 let pressedSelect = null;
+let pressedSelectWasOpen = false;
 document.addEventListener('pointerdown', event => {
     pressedSelect = event.target instanceof HTMLSelectElement ? event.target : null;
+    pressedSelectWasOpen = !!selectMenus.get(pressedSelect)?.matches(':popover-open');
 }, true);
 document.addEventListener('pointercancel', () => { pressedSelect = null; });
 document.addEventListener('mousedown', event => {
@@ -2104,7 +2129,12 @@ document.addEventListener('mousedown', event => {
 document.addEventListener('click', event => {
     if (event.target instanceof HTMLSelectElement && !event.target.multiple && event.target.size <= 1) {
         event.preventDefault();
-        if (pressedSelect === event.target) openSelectMenu(event.target);
+        if (pressedSelect === event.target) {
+            if (pressedSelectWasOpen) {
+                const menu = selectMenus.get(event.target);
+                if (menu?.matches(':popover-open')) menu.hidePopover();
+            } else openSelectMenu(event.target);
+        }
     }
     pressedSelect = null;
 });
