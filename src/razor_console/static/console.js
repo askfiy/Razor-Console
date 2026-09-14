@@ -1706,7 +1706,6 @@ $('#profile').onchange = e => {
     const name = e.target.value;
     task(() => switchProfile(name))
 };
-$('#open-profile').onclick = () => task(() => switchProfile($('#profile').value));
 
 function createProfile(copy) {
     $('#profile-title').textContent = copy ? '复制游戏配置' : '新建游戏配置';
@@ -2094,13 +2093,20 @@ function openSelectMenu(select) {
     menu.style.top = `${rect.bottom + height + 12 <= innerHeight ? rect.bottom + 4 : Math.max(8, rect.top - height - 4)}px`;
     (enabled.find(button => button.getAttribute('aria-selected') === 'true') || enabled[0])?.focus({preventScroll: true});
 }
+let pressedSelect = null;
+document.addEventListener('pointerdown', event => {
+    pressedSelect = event.target instanceof HTMLSelectElement ? event.target : null;
+}, true);
+document.addEventListener('pointercancel', () => { pressedSelect = null; });
 document.addEventListener('mousedown', event => {
     if (event.target instanceof HTMLSelectElement && !event.target.multiple && event.target.size <= 1) event.preventDefault();
 });
 document.addEventListener('click', event => {
     if (event.target instanceof HTMLSelectElement && !event.target.multiple && event.target.size <= 1) {
-        event.preventDefault(); openSelectMenu(event.target);
+        event.preventDefault();
+        if (pressedSelect === event.target) openSelectMenu(event.target);
     }
+    pressedSelect = null;
 });
 document.addEventListener('keydown', event => {
     if (event.target instanceof HTMLSelectElement && !event.target.multiple && event.target.size <= 1 &&
@@ -2130,3 +2136,5 @@ document.addEventListener('scroll', event => {
         if (menu.matches(':popover-open')) menu.hidePopover();
     }
 }, {capture: true, passive: true});
+
+// Auto popovers dismiss on outside clicks; pointer exit alone keeps them open.
