@@ -15,3 +15,5 @@ wheels/
 
 # Local Console settings
 .env
+.console-settings.json
+.console-settings.tmp

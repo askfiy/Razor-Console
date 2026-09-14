@@ -596,9 +596,10 @@ class SharedBridgeReader:
             version_before, published_at_ns, size = _FRAME_HEADER.unpack_from(
                 mapping, 0
             )
+            if version_before & 1:
+                continue
             if (
                 version_before == 0
-                or version_before & 1
                 or size == 0
                 or size > _FRAME_CAPACITY
                 or time.time_ns() - published_at_ns > self._frame_max_age_ns

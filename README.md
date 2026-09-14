@@ -1,6 +1,6 @@
 # Razor Console
 
-Web-based process supervisor and raw TOML editor for
+Web-based configuration workspace and process supervisor for
 [Razor Runtime](https://github.com/askfiy/Razor-Runtime).
 
 Razor Console keeps Runtime tuning in the original TOML files instead of
@@ -10,14 +10,68 @@ and stream Runtime logs without writing a log file.
 
 ## Features
 
-- Edit `boot.toml` and `config/*.toml` with TOML highlighting.
-- Comment or uncomment the selected lines with one action or `Ctrl+/`.
+- Configure five always-on core modules: Render, Selector, Controller,
+  Inference Engine, and Kalman Filter/Predictor.
+- Use enum menus, synchronized sliders and editable numbers, and key chips
+  with Add-to-capture and individual removal.
+- Enable or disable optional `component.*` sections while preserving their
+  settings and existing comments. Disabled settings remain editable.
+- Edit Recoil `pattern` and the full SequenceAction section with TOML syntax
+  highlighting, a selection-aware Comment / Uncomment button, and Ctrl+/ line
+  toggling. Comment operations preserve the editor and panel scroll positions.
+- Group multiple selector classes under the same label; include pickers exclude
+  the class itself. Label buttons select all classes in that group.
+- Define class aliases in the inference panel. Aliases replace class names in
+  pickers and are stored per profile in this browser only, outside Runtime TOML.
+- Choose an ONNX or TensorRT model with the native file chooser on the Console
+  host. Engine choices are ONNX Runtime and TensorRT YOLO.
+- Edit Visual Recoil HSV bounds in numeric H/S/V boxes, without sliders.
+- Keep `search` hidden and untouched. Startup settings edit `boot.toml`;
+  opening a game for editing does not change `system.loader`.
 - Create, copy, select, save, and recoverably delete game profiles.
 - Start and stop Razor Runtime as a separate process.
 - Show the latest rendered frame, including a native `imgsz` view.
 - Consume sound events and Runtime logs through the shared-memory Bridge.
-- Keep long configuration files and output panels inside a `100vh` layout
-  with independent scroll areas.
+- Edit details in a side panel and keep logs collapsed until needed.
+
+## Editing and saving
+
+Use **绑定 Runtime** to choose a Runtime root directory on the Console host.
+The binding is saved in Console's `.console-settings.json`, overrides the
+environment's Runtime directory, and survives Console restarts. Stop Runtime
+and save or discard drafts before changing the binding.
+The top-right status shows 未绑定 until a valid Runtime is configured, then
+未启动 or Runtime 运行中. **解绑** persists the unbound state without deleting
+Runtime files; it is available after stopping Runtime.
+
+Each inference class has an optional dynamic threshold switch. Disabling it
+removes `dynamic_threshold` so Runtime falls back to the normal threshold.
+
+Parameter edits update a draft. Preview and functional component switches write
+their changes immediately while preserving unrelated parameter drafts.
+Runtime retains its Sound Alert playback. Console records received Bridge
+events in the log without playing audio. Short preview gaps
+retain the last decoded frame. Saving retains the open panel and its position.
+Closing a side panel
+with **×** adds its edits to that draft; **Save** (or Ctrl+S outside a panel) writes changed
+files. External changes are checked before saving to avoid overwriting a newer
+file. Boot and inference changes warn about Runtime restart behavior.
+
+The form API, `POST /api/forms/draft`, transforms TOML in memory using
+`tomlkit`. It performs no file writes. Existing configuration PUT endpoints
+remain available and accept an optional `expected` original document for
+conflict detection. Game files are saved before boot when both are changed;
+the two files are not a single transaction, and an unsuccessful file stays dirty.
+
+Add waits for keyboard, mouse-button, or wheel events received by the browser.
+Existing extension tokens such as `<mouse-meta>` remain visible and removable;
+hardware-side monitoring is not connected. New profiles copy a
+saved existing profile so their required Runtime sections are present.
+
+```powershell
+uv run --with httpx python -m unittest tests_forms -v
+node tests_editor.cjs
+```
 
 ## Requirements
 

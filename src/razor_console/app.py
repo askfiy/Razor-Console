@@ -1,22 +1,32 @@
 """FastAPI application factory."""
 
+import asyncio
 import os
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from .forms import describe, transform
+from .model_picker import choose_model, choose_runtime
 from .services import ConfigStore, RuntimeProcess, SharedBridgeReader
-from .settings import ConsoleSettings, settings
+from .settings import ConsoleSettings, save_runtime_directory, settings
 
 
 class ConfigContent(BaseModel):
     """Raw TOML payload."""
 
     content: str
+    expected: str | None = None
+
+
+class FormDraft(BaseModel):
+    content: str
+    changes: list[dict[str, Any]] = []
 
 
 class CreateGameConfig(BaseModel):
@@ -28,7 +38,7 @@ class CreateGameConfig(BaseModel):
 
 def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
     """Create an isolated Razor Console application instance."""
-    active_settings = console_settings or settings
+    active_settings = (console_settings or settings).model_copy()
     app = FastAPI(
         title="Razor Console",
         description="Control console for an independently runnable Razor Runtime.",
@@ -38,9 +48,127 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
     config_store = ConfigStore(active_settings.runtime_directory)
     runtime_process = RuntimeProcess(active_settings.runtime_directory)
     bridge_reader = SharedBridgeReader()
+    model_picker_lock = Lock()
+
+    def is_bound() -> bool:
+        directory = active_settings.runtime_directory
+        return (
+            active_settings.runtime_bound
+            and (directory / "boot.toml").is_file()
+            and (directory / "config").is_dir()
+            and (directory / "main.py").is_file()
+        )
+
+    @app.post("/api/runtime/unbind", tags=["configuration"])
+    async def unbind_runtime() -> dict[str, bool]:
+        if runtime_process.running or model_picker_lock.locked():
+            raise HTTPException(
+                status_code=409, detail="请先停止 Runtime 并关闭选择窗口"
+            )
+        save_runtime_directory(active_settings.runtime_directory, bound=False)
+        active_settings.runtime_bound = False
+        bridge_reader.close()
+        return {"bound": False}
+
+    @app.post("/api/runtime/bind", tags=["configuration"])
+    async def bind_runtime() -> dict[str, str | None]:
+        nonlocal config_store, runtime_process, bridge_reader
+        if runtime_process.running:
+            raise HTTPException(
+                status_code=409, detail="请先停止 Runtime 再更换绑定目录"
+            )
+        if not model_picker_lock.acquire(blocking=False):
+            raise HTTPException(status_code=409, detail="选择窗口已经打开")
+        try:
+            directory = await asyncio.to_thread(
+                choose_runtime, active_settings.runtime_directory
+            )
+            if directory is None:
+                return {"path": None}
+            if runtime_process.running:
+                raise HTTPException(
+                    status_code=409, detail="请先停止 Runtime 再更换绑定目录"
+                )
+            if (
+                not (directory / "boot.toml").is_file()
+                or not (directory / "config").is_dir()
+                or not (directory / "main.py").is_file()
+            ):
+                raise ValueError(
+                    "请选择包含 boot.toml、config 和 main.py 的 Runtime 根目录"
+                )
+            new_store = ConfigStore(directory)
+            summary = new_store.summary()
+            new_store._validate_toml(new_store.read_boot())
+            if summary["active_loader"]:
+                new_store._validate_toml(new_store.read_game(summary["active_loader"]))
+            save_runtime_directory(directory)
+            bridge_reader.close()
+            config_store = new_store
+            runtime_process = RuntimeProcess(directory)
+            bridge_reader = SharedBridgeReader()
+            active_settings.runtime_directory = directory
+            active_settings.runtime_bound = True
+            return {"path": str(directory)}
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        finally:
+            model_picker_lock.release()
+
+    @app.post("/api/models/pick", tags=["configuration"])
+    def pick_model() -> dict[str, str | None]:
+        if not model_picker_lock.acquire(blocking=False):
+            raise HTTPException(status_code=409, detail="模型选择窗口已经打开")
+        try:
+            return {"path": choose_model(active_settings.runtime_directory)}
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        finally:
+            model_picker_lock.release()
+
+    @app.post("/api/directories/pick", tags=["configuration"])
+    def pick_output_directory() -> dict[str, str | None]:
+        if not model_picker_lock.acquire(blocking=False):
+            raise HTTPException(status_code=409, detail="文件选择窗口已经打开")
+        try:
+            selected = choose_runtime(active_settings.runtime_directory, "选择采集输出目录")
+            if selected is not None and not selected.is_dir():
+                raise ValueError("请选择存在的文件夹")
+            return {"path": selected.as_posix() if selected is not None else None}
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        finally:
+            model_picker_lock.release()
+
+    @app.post("/api/forms/draft", tags=["configuration"])
+    async def form_draft(payload: FormDraft) -> dict[str, Any]:
+        try:
+            return (
+                transform(payload.content, payload.changes)
+                if payload.changes
+                else describe(payload.content)
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.middleware("http")
     async def disable_console_asset_cache(request: Request, call_next):
+        path = request.url.path
+        if (
+            path.startswith("/api/")
+            and path
+            not in {
+                "/api/health",
+                "/api/runtime",
+                "/api/runtime/bind",
+                "/api/runtime/unbind",
+                "/api/forms/draft",
+            }
+            and not is_bound()
+        ):
+            return JSONResponse(status_code=409, content={"detail": "请先绑定 Runtime"})
         response = await call_next(request)
         if not request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
@@ -57,6 +185,7 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
             "status": "ok",
             "service": "razor-console",
             "runtime": {
+                "bound": is_bound(),
                 "directory": str(runtime_directory),
                 "exists": runtime_directory.is_dir(),
             },
@@ -79,8 +208,19 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
     @app.put("/api/config/boot", tags=["configuration"])
     async def save_boot_config(payload: ConfigContent) -> dict[str, str]:
         try:
+            if (
+                payload.expected is not None
+                and config_store.read_boot() != payload.expected
+            ):
+                raise HTTPException(
+                    status_code=409, detail="文件已在外部修改，请重新打开后再保存。"
+                )
             config_store.save_boot(payload.content)
             return {"status": "saved", "name": "boot.toml"}
+        except HTTPException:
+            raise
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -95,12 +235,19 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @app.put("/api/config/game/{name}", tags=["configuration"])
-    async def save_game_config(
-        name: str, payload: ConfigContent
-    ) -> dict[str, str]:
+    async def save_game_config(name: str, payload: ConfigContent) -> dict[str, str]:
         try:
+            if (
+                payload.expected is not None
+                and config_store.read_game(name) != payload.expected
+            ):
+                raise HTTPException(
+                    status_code=409, detail="文件已在外部修改，请重新打开后再保存。"
+                )
             config_store.save_game(name, payload.content)
             return {"status": "saved", "name": f"{name.removesuffix('.toml')}.toml"}
+        except HTTPException:
+            raise
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except Exception as exc:
@@ -132,7 +279,7 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
 
     @app.get("/api/runtime", tags=["runtime"])
     async def runtime_status() -> dict[str, Any]:
-        return runtime_process.status()
+        return {**runtime_process.status(), "bound": is_bound()}
 
     @app.post("/api/runtime/start", tags=["runtime"])
     async def start_runtime() -> dict[str, Any]:
@@ -184,9 +331,8 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
         )
 
     @app.get("/api/bridge/events", tags=["bridge"])
-    async def bridge_events() -> dict[str, list[dict[str, Any]]]:
+    async def bridge_events() -> dict[str, Any]:
         return {"events": bridge_reader.read_sound_events()}
-
     def read_runtime_logs(
         after: int | None = None,
     ) -> dict[str, Any]:

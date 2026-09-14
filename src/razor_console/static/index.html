@@ -1,186 +1,322 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <title>Razor Console</title>
-  <style>
-    html, body { background: #0d1117; }
-    body.app-loading .shell,
-    body.app-loading .ambient { visibility: hidden; }
-    body.app-loading .app-loading-screen { display: grid; }
-  </style>
-  <link rel="stylesheet" href="/console.css?v=2">
-</head>
-<body class="runtime-off app-loading">
-  <div class="app-loading-screen" aria-live="polite">
-    <div class="app-loading-mark">RZ</div>
-    <span>Loading Razor Console...</span>
-  </div>
-  <div class="ambient"></div>
-  <main class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">RZ</div>
-        <div>
-          <h1>Razor Console</h1>
-          <p>Runtime · TOML · Output</p>
-        </div>
-      </div>
-      <div class="runtime-control">
-        <span class="status-pill offline" id="runtime-status"><i></i>Runtime offline</span>
-        <button class="button start" id="start-button">Start program</button>
-        <button class="button stop" id="stop-button" disabled>Stop program</button>
-      </div>
-    </header>
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <meta content="dark" name="color-scheme"/>
+  <title>
+   Razor Console
+  </title>
+  <link href="/console.css?v=3" rel="stylesheet"/>
+ </head>
+ <body>
+  <header class="topbar">
+   <a class="brand" href="/">
+    <span class="brandmark">
+     R
+     <span>
+      ／
+     </span>
+    </span>
+    RAZOR
+    <small>
+     CONSOLE
+    </small>
+   </a>
+   <div class="runtime">
+    <span class="status" id="runtime-state">
+     连接中
+    </span>
+    <button class="primary" hidden id="bind-runtime">绑定 Runtime</button>
+    <button class="primary" disabled="" id="run">
+     启动 Runtime
+    </button>
+    <button hidden id="unbind-runtime">解绑</button>
+   </div>
+  </header>
+  <main>
+   <section class="page-heading">
+    <div>
+     <p class="eyebrow">
+      WORKSPACE / 配置工作台
+     </p>
+     <h1>
+      运行与配置
+     </h1>
 
-    <section class="workspace">
-      <aside class="sidebar panel">
-        <div class="sidebar-section">
-          <span class="eyebrow">Configuration</span>
-          <h2>TOML files</h2>
-          <button class="file-card active" id="boot-button">
-            <span class="file-icon">B</span>
-            <span><strong>boot.toml</strong><small>Shared system configuration</small></span>
-          </button>
-          <label class="select-label" for="game-select">Game configuration</label>
-          <select id="game-select"></select>
-          <div class="row-actions">
-            <button class="button subtle" id="open-game-button">Open</button>
-            <button class="button subtle" id="new-game-button">New</button>
-            <button class="button danger-text" id="delete-game-button">Delete</button>
-          </div>
-        </div>
-
-        <footer class="sidebar-footer">
-          <span>Runtime directory</span>
-          <code>D:\Project\Razor\Razor-Runtime</code>
-        </footer>
-      </aside>
-
-      <section class="editor panel">
-        <header class="panel-header">
-          <div>
-            <span class="eyebrow">Raw TOML editor</span>
-            <h2 id="editor-title">boot.toml</h2>
-            <p id="editor-path">D:\Project\Razor\Razor-Runtime\boot.toml</p>
-          </div>
-          <div class="editor-actions">
-            <span class="save-state" id="save-state">saved</span>
-            <button class="button subtle comment-button" id="toggle-comment-button" title="Comment or uncomment selected lines (Ctrl+/)"># Comment</button>
-            <button class="button subtle" id="reload-button">Reload</button>
-            <button class="button save" id="save-button">Save</button>
-          </div>
-        </header>
-        <div class="editor-surface">
-          <pre class="line-numbers" id="line-numbers" aria-hidden="true">1</pre>
-          <div class="editor-code">
-            <pre id="toml-highlight" aria-hidden="true"><code></code></pre>
-            <textarea id="toml-editor" wrap="off" spellcheck="false" autocomplete="off" aria-label="TOML editor"></textarea>
-          </div>
-        </div>
-        <footer class="editor-footer">
-          <span id="cursor-position">Ln 1, Col 1</span>
-          <span>UTF-8 · TOML</span>
-        </footer>
-      </section>
-
-      <aside class="output-column">
-        <section class="frame-panel panel">
-          <header class="panel-header compact">
-            <div>
-              <span class="eyebrow">Frame output</span>
-              <h2>Preview</h2>
-            </div>
-            <div class="frame-header-actions">
-              <select class="preview-fps-select" id="preview-fps" aria-label="Preview FPS" disabled>
-                <option value="30">30 FPS</option>
-                <option value="60" selected>60 FPS</option>
-                <option value="90">90 FPS</option>
-                <option value="120">120 FPS</option>
-                <option value="240">240 FPS</option>
-              </select>
-              <span
-                class="preview-fps-help"
-                title="Browser Preview refresh rate only. Actual FPS depends on the incoming Runtime frame stream."
-                aria-label="Preview FPS help"
-              >?</span>
-              <button class="frame-expand-button" id="open-frame-button" title="Show native imgsz frame" disabled>&lt;&gt;</button>
-            </div>
-          </header>
-          <div class="frame-stage disabled" id="frame-stage">
-            <img id="frame-image" alt="Runtime frame" hidden>
-            <div class="frame-placeholder" id="frame-placeholder">
-              <div class="crosshair"></div>
-              <strong>Frame output disabled</strong>
-              <span>Set <code>open_preview = true</code> under <code>[bridge]</code></span>
-            </div>
-            <div class="frame-meta">
-              <span id="frame-profile">delta_force.toml</span>
-              <span id="frame-connection">offline</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="runtime-log panel">
-          <header class="panel-header compact">
-            <div><span class="eyebrow">Process output</span><h2>Runtime Log</h2></div>
-            <div class="panel-actions">
-              <button class="panel-action-button" id="copy-runtime-log">Copy</button>
-              <button class="panel-action-button" id="clear-runtime-log">Clear</button>
-            </div>
-          </header>
-          <div class="runtime-log-list" id="runtime-log-list">
-            <div class="runtime-log-empty" id="runtime-log-empty">Waiting for Runtime logs...</div>
-          </div>
-        </section>
-
-        <section class="activity panel">
-          <header class="panel-header compact">
-            <div><span class="eyebrow">Activity</span><h2>Console events</h2></div>
-            <div class="panel-actions">
-              <button class="panel-action-button" id="copy-events">Copy</button>
-              <button class="panel-action-button" id="clear-events">Clear</button>
-            </div>
-          </header>
-          <div class="event-list" id="event-list">
-            <div class="event-list-empty" id="event-list-empty">Waiting for Console events...</div>
-          </div>
-        </section>
-      </aside>
-    </section>
-  </main>
-
-  <dialog id="frame-dialog" class="frame-dialog">
-    <div class="frame-player">
-      <img id="native-frame-image" alt="Live Runtime preview">
-      <div class="frame-player-controls">
-        <span class="frame-player-live"><i></i>LIVE</span>
-        <span id="native-frame-size">waiting</span>
-        <button class="frame-player-close" id="close-frame-dialog" aria-label="Close preview">×</button>
-      </div>
     </div>
-  </dialog>
+    <button id="boot-settings">
+     启动设置
+     <span>
+      ↗
+     </span>
+    </button>
+   </section>
+   <section class="profile-bar panel">
+    <div class="profile-icon">
+     ▤
+    </div>
+    <div class="profile-picker">
+     <label for="profile">
+      正在编辑
+     </label>
+     <select aria-label="正在编辑的游戏配置" id="profile">
+     </select>
+    </div>
+    <div class="profile-actions">
+     <button id="open-profile">
+      打开
+     </button>
+     <button id="new-profile">
+      新建
+     </button>
+     <button id="copy-profile">
+      复制
+     </button>
+     <button class="quiet danger" id="delete-profile">
+      删除
+     </button>
+    </div>
+    <div class="loader">
+     <span id="loader-text">
+      启动配置 —
+     </span>
+     <button class="quiet" id="use-profile">
+      设为启动配置
+     </button>
+    </div>
+   </section>
+   <div class="section-heading">
+    <h2>
+     核心组件
+     <span>
+      CORE MODULES
+     </span>
+    </h2>
 
-  <dialog id="new-game-dialog">
-    <form method="dialog">
-      <header>
-        <div><span class="eyebrow">Game configuration</span><h2>New TOML file</h2></div>
-        <button value="cancel" class="dialog-close">×</button>
-      </header>
-      <div class="dialog-body">
-        <label>File name<input id="new-game-name" placeholder="apex_legends" autocomplete="off"></label>
-        <label>Copy from<select id="new-game-source"></select></label>
+   </div>
+   <section class="core-grid" id="core-grid">
+   </section>
+   <section class="middle-grid">
+    <article class="panel input-panel">
+     <div class="panel-head">
+      <div>
+       <p class="eyebrow">
+        PLAYER
+       </p>
+       <h2>
+        输入绑定
+       </h2>
       </div>
-      <footer>
-        <button value="cancel" class="button subtle">Cancel</button>
-        <button value="default" class="button save" id="create-game-button">Create</button>
-      </footer>
-    </form>
-  </dialog>
+      <button class="quiet" id="player-settings">
+       全部设置 ↗
+      </button>
+     </div>
+     <div id="player-fields">
+     </div>
+    </article>
+    <article class="panel preview-panel"><div class="output-tabs" role="tablist" aria-label="运行输出"><button id="tab-preview" role="tab" aria-selected="true" aria-controls="output-preview">实时预览</button><button id="tab-logs" role="tab" aria-selected="false" aria-controls="output-logs" tabindex="-1">日志</button></div><section id="output-preview" role="tabpanel" aria-labelledby="tab-preview">
+     <div class="panel-head">
+      <div>
+       <p class="eyebrow">
+        LIVE VIEW
+       </p>
+       <h2>
+        实时预览
+        <span class="small-badge" id="preview-status">
+         未连接
+        </span>
+       </h2>
+      </div>
+      <div class="actions">
+       <select aria-label="浏览器预览刷新率" id="preview-fps">
+        <option>
+         30
+        </option>
+        <option selected="">
+         60
+        </option>
+        <option>
+         90
+        </option>
+        <option>
+         120
+        </option>
+        <option>
+         240
+        </option>
+       </select>
+       <button aria-label="放大预览" id="expand-preview">
+        ⛶
+       </button>
+       <button id="toggle-preview">开启预览</button>
+      </div>
+     </div>
+     <div class="preview-stage">
+      <img alt="Runtime 实时画面" hidden="" id="frame"/>
+      <div id="frame-empty">
+       <span class="preview-cross">
+        ＋
+       </span>
+       <strong>
+        等待画面输入
+       </strong>
+       <p>
+        在启动设置中启用 Bridge 画面输出
+       </p>
+       <button class="quiet" id="preview-settings">
+        配置画面输出 ↗
+       </button>
+      </div>
+     </div>
+     <footer class="preview-footer">
+      <span id="frame-meta">
+       无画面
+      </span>
+      <span>
 
-  <div class="toast" id="toast"><strong id="toast-title"></strong><span id="toast-message"></span></div>
-  <script src="/console.js?v=2"></script>
-</body>
+      </span>
+     </footer>
+</section>   <section id="output-logs" role="tabpanel" aria-labelledby="tab-logs" hidden>
+    <span class="muted" id="log-count">0 条</span>
+    <div class="log-toolbar">
+     <select aria-label="日志筛选" id="log-filter">
+      <option value="all">
+       全部
+      </option>
+      <option value="error">
+       警告与错误
+      </option>
+      <option value="console">
+       Console 事件
+      </option>
+     </select>
+     <div>
+      <button class="quiet" id="follow-logs" aria-pressed="true" title="新日志到达时自动滚动到底部">跟随：开</button>
+      <button class="quiet" id="copy-logs">
+       复制
+      </button>
+      <button class="quiet" id="clear-logs">
+       清空
+      </button>
+     </div>
+    </div>
+    <div aria-live="polite" id="log-list">
+    </div>
+   </section>    </article>
+   </section>
+   <div class="section-heading">
+    <h2>
+     功能组件
+     <span>
+      COMPONENTS
+     </span>
+    </h2>
+    <span class="muted" id="component-count">
+    </span>
+   </div>
+   <section class="plugin-grid" id="plugin-grid">
+   </section>
+
+   <footer class="workspace-foot">
+    <span id="runtime-dir">
+    </span>
+    <span>
+     RAZOR / LOCAL WORKSPACE
+    </span>
+   </footer>
+  </main>
+  <footer class="savebar" hidden>
+   <div>
+    <i id="dirty-dot">
+    </i>
+    <strong id="save-state">
+     正在读取配置…
+    </strong>
+    <span id="save-detail">
+    </span>
+   </div>
+   <div class="actions">
+    <button disabled="" id="discard">
+     撤销修改
+    </button>
+    <button class="primary" disabled="" id="save" type="button">
+     保存更改
+     <kbd>
+      Ctrl S
+     </kbd>
+    </button>
+   </div>
+  </footer>
+  <dialog id="drawer">
+   <form id="drawer-form">
+    <header class="drawer-head">
+     <div>
+      <p class="eyebrow" id="drawer-eyebrow">
+      </p>
+      <h2 id="drawer-title" tabindex="-1" autofocus>
+      </h2>
+     </div>
+     <button aria-label="关闭设置" class="icon-button" id="drawer-close" type="button">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+     </button>
+    </header>
+    <div id="drawer-content">
+    </div>
+   </form>
+  </dialog>
+  <dialog id="profile-dialog">
+   <form id="profile-form">
+    <p class="eyebrow">
+     GAME PROFILE
+    </p>
+    <h2 id="profile-title">
+     新建配置
+    </h2>
+    <label>
+     文件名称
+     <input autocomplete="off" id="profile-name" pattern="[A-Za-z0-9_-]+" placeholder="my_profile" required=""/>
+    </label>
+    <label>
+     以现有配置为模板
+     <select id="profile-source">
+     </select>
+    </label>
+    <p class="muted">
+     复制完整参数，避免新配置缺少运行必需的核心模块。
+    </p>
+    <div class="actions">
+     <button id="profile-cancel" type="button">
+      取消
+     </button>
+     <button class="primary" type="submit">
+      创建配置
+     </button>
+    </div>
+   </form>
+  </dialog>
+  <dialog id="preview-dialog">
+   <button aria-label="关闭放大预览" id="close-preview">
+    ×
+   </button>
+   <img alt="原始尺寸运行画面" id="large-frame"/>
+  </dialog>
+  <div hidden="" id="watch-banner" role="status">
+   <span>
+    等待按键… 键盘、鼠标按钮或滚轮 · Esc 取消
+   </span>
+   <button id="cancel-watch">
+    取消
+   </button>
+  </div>
+  <div id="toast" role="status">
+  </div>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+<h2 id="confirm-title">确认操作</h2><p id="confirm-message"></p>
+<div class="actions"><button id="confirm-cancel">取消</button><button id="confirm-accept" class="primary">继续</button></div>
+</dialog>
+<script src="/toml-editor.js?v=1"></script>
+<script src="/console.js?v=4">
+  </script>
+ </body>
 </html>
