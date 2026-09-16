@@ -1539,6 +1539,7 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
 
 /* Keep the split-button divider distinct from the shared hover fill. */
 .keys .key-add-actions > .key-special-button { position: relative; }
+.keys .key-add-actions.has-special > button:first-child { border-right: 0; }
 .keys .key-add-actions > .key-special-button::before {
     content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
     width: 1px; background: currentColor; opacity: .5; pointer-events: none;
@@ -1587,3 +1588,44 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
 
 /* Initial dialog focus belongs to its heading; controls show focus on keyboard navigation. */
 #drawer-title:focus { outline: none; }
+
+/* Player controls sit below the picture; expanded playback fits the viewport. */
+#output-preview .preview-stage { background: #080808; background-image: none; margin: 0; border-radius: 0; }
+#output-preview .preview-footer { padding: 10px 14px; border-top: 1px solid var(--line); background: #181818; gap: 12px; flex-wrap: wrap; }
+.player-controls { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+#expand-preview { font: 600 14px Consolas, monospace; min-width: 34px; }
+#preview-dialog { padding: 0; border: 1px solid #3a3a3a; background: #080808; width: fit-content; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow: hidden; border-radius: 6px; }
+#preview-dialog::backdrop { background: #000c; backdrop-filter: blur(4px); }
+.original-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 36px; padding: 10px 14px; background: #181818; }
+.original-preview-head small { color: var(--muted); margin-left: 10px; }
+#close-preview { float: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 30px; height: 30px; }
+.original-preview-viewport { display: flex; align-items: center; justify-content: center; overflow: hidden; min-width: min(320px, calc(100vw - 34px)); }
+#preview-dialog #large-frame { display: block; width: auto; height: auto; max-width: calc(100vw - 34px); max-height: calc(100dvh - 144px); object-fit: contain; }
+.original-preview-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 10px 14px; background: #181818; color: var(--muted); }
+
+.preview-header-controls { display: flex; align-items: center; gap: 8px; }
+#output-preview > .panel-head { flex-wrap: wrap; gap: 12px; }
+.preview-header-controls { margin-left: auto; }
+
+.frame-size-overlay { position: absolute; top: 10px; left: 12px; z-index: 1; padding: 3px 6px; border-radius: 3px; background: #080808b3; color: #aaa; font: 11px Consolas, monospace; pointer-events: none; }
+.preview-header-controls > button, .preview-header-controls > select { height: 32px; }
+#toggle-preview { background: var(--raised); color: var(--text); border-color: var(--line); }
+#toggle-preview:not(:disabled):hover { background: var(--green); color: #080808; border-color: var(--green); }
+
+/* Both output tabs share the same header and edge-to-edge content geometry. */
+#output-logs, #output-preview { display: grid; grid-template-rows: 84px minmax(0, 1fr); padding: 0; min-height: 344px; flex: 1; }
+#output-logs > .panel-head, #output-preview > .panel-head { margin: 0; padding: 16px 22px; gap: 12px; min-width: 0; }
+#output-logs .log-toolbar { padding: 0; margin: 0 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+#output-logs .log-toolbar button, #output-logs .log-toolbar select { height: 32px; }
+#output-logs #log-list { position: absolute; inset: 84px 0 0; min-height: 0; height: auto; max-height: none; margin: 0; padding: 10px 14px; border: 0; border-radius: 0; background: #080808; overflow: auto; }
+#output-preview .preview-stage { min-height: 0; }
+#output-logs .log-line { border-bottom: 0; }
+@media (max-width: 600px) {
+    #output-logs > .panel-head, #output-preview > .panel-head { padding: 12px; gap: 6px; }
+    #output-logs .log-toolbar { gap: 4px; }
+    #output-logs .log-toolbar select { max-width: 80px; }
+    #output-logs .log-toolbar button { padding: 5px; }
+    #output-logs .panel-head h2 { font-size: 15px; }
+    #output-logs #log-count { display: block; margin: 3px 0 0; width: fit-content; }
+    #output-logs .eyebrow { display: none; }
+}

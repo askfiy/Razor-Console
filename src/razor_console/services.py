@@ -197,6 +197,9 @@ class RuntimeProcess:
             return
 
         with self._log_lock:
+            if "[src.reload]" in clean_text and clean_text.endswith("Configuration file change detected, reloading..."):
+                self._logs.clear()
+                self._log_generation += 1
             self._log_sequence += 1
             self._logs.append(
                 {

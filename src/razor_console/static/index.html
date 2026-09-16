@@ -112,7 +112,7 @@
      <div id="player-fields">
      </div>
     </article>
-    <article class="panel preview-panel"><div class="output-tabs" role="tablist" aria-label="运行输出"><button id="tab-preview" role="tab" aria-selected="true" aria-controls="output-preview">实时预览</button><button id="tab-logs" role="tab" aria-selected="false" aria-controls="output-logs" tabindex="-1">日志</button></div><section id="output-preview" role="tabpanel" aria-labelledby="tab-preview">
+    <article class="panel preview-panel"><div class="output-tabs" role="tablist" aria-label="运行输出"><button id="tab-logs" role="tab" aria-selected="true" aria-controls="output-logs">日志</button><button id="tab-preview" role="tab" aria-selected="false" aria-controls="output-preview" tabindex="-1">实时预览</button></div><section id="output-preview" role="tabpanel" aria-labelledby="tab-preview" hidden>
      <div class="panel-head">
       <div>
        <p class="eyebrow">
@@ -125,7 +125,7 @@
         </span>
        </h2>
       </div>
-      <div class="actions">
+      <div class="actions preview-header-controls">
        <select aria-label="浏览器预览刷新率" id="preview-fps">
         <option>
          30
@@ -143,13 +143,15 @@
          240
         </option>
        </select>
-       <button aria-label="放大预览" id="expand-preview">
-        ⛶
+       <button aria-label="按原始尺寸查看" title="原始尺寸 · 1:1" id="expand-preview">
+        &lt;&gt;
        </button>
        <button id="toggle-preview">开启预览</button>
       </div>
+
      </div>
      <div class="preview-stage">
+      <span id="frame-meta" class="frame-size-overlay">无画面</span>
       <img alt="Runtime 实时画面" hidden="" id="frame"/>
       <div id="frame-empty">
        <span class="preview-cross">
@@ -159,23 +161,17 @@
         等待画面输入
        </strong>
        <p>
-        在启动设置中启用 Bridge 画面输出
+        在渲染设置中启用 Console 画面输出
        </p>
        <button class="quiet" id="preview-settings">
         配置画面输出 ↗
        </button>
       </div>
      </div>
-     <footer class="preview-footer">
-      <span id="frame-meta">
-       无画面
-      </span>
-      <span>
 
-      </span>
-     </footer>
-</section>   <section id="output-logs" role="tabpanel" aria-labelledby="tab-logs" hidden>
-    <span class="muted" id="log-count">0 条</span>
+</section>   <section id="output-logs" role="tabpanel" aria-labelledby="tab-logs">
+    <header class="panel-head log-panel-head">
+     <div><p class="eyebrow">RUNTIME LOG</p><h2>日志 <span class="small-badge" id="log-count">0 条</span></h2></div>
     <div class="log-toolbar">
      <select aria-label="日志筛选" id="log-filter">
       <option value="all">
@@ -198,6 +194,7 @@
       </button>
      </div>
     </div>
+    </header>
     <div aria-live="polite" id="log-list">
     </div>
    </section>    </article>
@@ -293,10 +290,9 @@
    </form>
   </dialog>
   <dialog id="preview-dialog">
-   <button aria-label="关闭放大预览" id="close-preview">
-    ×
-   </button>
-   <img alt="原始尺寸运行画面" id="large-frame"/>
+   <header class="original-preview-head"><span>原始尺寸 <small id="original-frame-meta">1:1</small></span><button aria-label="关闭原始尺寸预览" id="close-preview"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5"/></svg></button></header>
+   <div class="original-preview-viewport"><img alt="原始尺寸运行画面" id="large-frame"/></div>
+   <footer class="original-preview-footer"><span id="expanded-preview-status">实时画面</span><button id="expanded-toggle-preview">停止预览</button></footer>
   </dialog>
   <div hidden="" id="watch-banner" role="status">
    <span>

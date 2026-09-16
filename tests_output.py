@@ -7,11 +7,21 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from razor_console.app import create_app
-from razor_console.services import SharedBridgeReader, _FRAME_HEADER
+from razor_console.services import RuntimeProcess, SharedBridgeReader, _FRAME_HEADER
 from razor_console.settings import ConsoleSettings
 
 
 class OutputTests(unittest.TestCase):
+    def test_reload_discards_old_logs_but_preserves_new_cycle(self):
+        process = RuntimeProcess(Path('.'))
+        process._append_log(20, 'previous session')
+        generation = process.log_generation
+        marker = 'INFO: [time] [src.reload] - [check_changes:125] - Configuration file change detected, reloading...'
+        process._append_log(20, marker)
+        process._append_log(20, 'Reloaded player')
+        self.assertEqual(process.log_generation, generation + 1)
+        self.assertEqual([row['text'] for row in process.read_logs(0)], [marker, 'Reloaded player'])
+
     def test_bridge_returns_events_without_playback_instructions(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

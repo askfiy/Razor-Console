@@ -171,7 +171,8 @@ const plugins = {
 const coreDefaults = {
     render: {
         url: 'mem://razor-aim',
-        is_show: false,
+        is_show: true,
+        imgsz: 0,
         title: 'Razor'
     },
     selector: {
@@ -654,7 +655,7 @@ function numberBounds(key, value) {
 }
 
 const explanations = {
-    nms_topk: 'NMS 前每个类别保留的候选框数量上限。', imgsz: '用于渲染的图像尺寸。',
+    nms_topk: 'NMS 前每个类别保留的候选框数量上限。', imgsz: '采集图像的正方形裁剪尺寸，单位为像素；0 表示自动跟随模型输入尺寸。',
     scale_gt_filter: '过滤超过指定尺寸比例的目标。', scale_lt_filter: '过滤小于指定尺寸比例的目标。',
     active_confidence_threshold: '活跃状态下采集数据使用的置信度阈值。', inactive_confidence_threshold: '非活跃状态下采集数据使用的置信度阈值。',
     dn: '按键按下时发送的设备报告。', up: '按键释放时发送的设备报告。', mapping: '输入与输出的对应关系。',
@@ -1537,7 +1538,7 @@ function drawEntry(entry, root = $('#drawer-content'), hideEnable = false) {
             entry.changed = true;
             state.modal.changed = true
         }, {
-            numberOnly: entry.name === 'component.VisualRecoilComponent',
+            numberOnly: entry.name === 'component.VisualRecoilComponent' || key === 'imgsz',
             aimPart: entry.name === 'component.AimPartComponent',
             labelBinding: entry.name === 'player.labels_button' || (entry.name === 'player' && key === 'labels_button')
         }))
@@ -1650,7 +1651,7 @@ async function closeDrawer(close = true) {
 }
 $('#core-grid').onclick = e => {
     const card = e.target.closest('[data-core]');
-    if (card) openDrawer(card.dataset.scope, card.dataset.core === 'kalman' ? ['kalman.filter', 'kalman.predict'] : [card.dataset.core], labels[card.dataset.core])
+    if (card) openDrawer(card.dataset.scope, card.dataset.core === 'kalman' ? ['kalman.filter', 'kalman.predict'] : card.dataset.core === 'render' ? ['render', 'bridge'] : [card.dataset.core], labels[card.dataset.core])
 };
 $('#plugin-grid').onclick = e => {
     if (state.busy || e.target.closest('input, label')) return;
@@ -1684,14 +1685,13 @@ $('#plugin-grid').onchange = e => {
 };
 
 function bootSettings() {
-    const names = state.boot.sections.filter(s => s.name === 'system' || s.name === 'bridge' || s.name.startsWith('device.')).map(s => s.name);
-    if (!names.includes('bridge')) names.push('bridge');
+    const names = state.boot.sections.filter(s => s.name === 'system' || s.name.startsWith('device.')).map(s => s.name);
     for (const n of ['device.CloudPierce', 'device.KmBoxNet'])
         if (!names.includes(n)) names.push(n);
     openDrawer('boot', names, '启动设置')
 }
 $('#boot-settings').onclick = bootSettings;
-$('#preview-settings').onclick = () => openDrawer('boot', ['bridge'], 'Console 输出');
+$('#preview-settings').onclick = () => openDrawer('boot', ['render', 'bridge'], '渲染');
 $('#player-settings').onclick = () => openDrawer('game', labelBindingSections(), '输入绑定');
 $('#use-profile').onclick = () => task(() => patch('boot', [{
     name: 'system',
@@ -1845,12 +1845,16 @@ function renderLogs() {
     $('#log-count').textContent = `${state.logs.length} 条`;
     list.scrollTop = followLogs ? list.scrollHeight : previousTop;
 }
-$('#follow-logs').onclick = () => {
-    followLogs = !followLogs;
+function setLogFollow(enabled) {
+    followLogs = enabled;
     $('#follow-logs').setAttribute('aria-pressed', String(followLogs));
     $('#follow-logs').textContent = followLogs ? '跟随：开' : '跟随：关';
     if (followLogs) $('#log-list').scrollTop = $('#log-list').scrollHeight;
-};
+}
+$('#follow-logs').onclick = () => setLogFollow(!followLogs);
+$('#log-list').addEventListener('wheel', () => {
+    if (followLogs) setLogFollow(false);
+}, {passive: true});
 function selectOutput(name) {
     for (const view of ['preview', 'logs']) {
         const selected = view === name;
@@ -1865,7 +1869,7 @@ for (const name of ['preview', 'logs']) {
     $(`#tab-${name}`).onkeydown = event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
-        const next = event.key === 'Home' ? 'preview' : event.key === 'End' ? 'logs' : name === 'preview' ? 'logs' : 'preview';
+        const next = event.key === 'Home' ? 'logs' : event.key === 'End' ? 'preview' : name === 'preview' ? 'logs' : 'preview';
         selectOutput(next);
         $(`#tab-${next}`).focus();
     };
@@ -1922,9 +1926,12 @@ async function pollLogs() {
         const payload = await api(`/api/runtime/logs?after=${state.sequence}`);
         if (state.generation !== payload.generation) {
             state.generation = payload.generation;
-            state.sequence = 0
+            state.sequence = 0;
+            state.logs = [];
+            renderLogs();
         } else {
             for (const r of payload.logs || []) {
+                if (r.text.includes('[src.reload]') && r.text.endsWith('Configuration file change detected, reloading...')) state.logs = [];
                 state.sequence = Number(r.sequence);
                 state.logs.push({
                     time: new Date(Number(r.published_at_ms)).toLocaleTimeString(),
@@ -1979,6 +1986,9 @@ async function pollFrame() {
         $('#expand-preview').disabled = !state.live;
         $('#toggle-preview').textContent = savedBoot ? '停止预览' : '开启预览';
         $('#toggle-preview').disabled = state.busy || !state.bound;
+        $('#expanded-toggle-preview').textContent = savedBoot ? '停止预览' : '开启预览';
+        $('#expanded-toggle-preview').disabled = state.busy || !state.bound;
+        $('#expanded-preview-status').textContent = state.live ? 'LIVE' : savedBoot ? '等待画面' : '预览已停止';
         $('#frame-empty strong').textContent = savedBoot ? '等待 Runtime 画面' : '画面输出未开启'
     }
     setTimeout(pollFrame, state.live ? 1000 / fps : 800)
@@ -1991,9 +2001,19 @@ function awaitSavedBridge() {
 $('#toggle-preview').onclick = () => task(async () => {
     await syncSwitch('boot', [{name: 'bridge', enabled: true, data: {open_preview: !awaitSavedBridge()}}]);
 });
-$('#frame').onload = () => $('#frame-meta').textContent = `${$('#frame').naturalWidth} × ${$('#frame').naturalHeight}`;
+$('#frame').onload = () => {
+    const size = `${$('#frame').naturalWidth} × ${$('#frame').naturalHeight}`;
+    $('#frame-meta').textContent = size;
+    $('#original-frame-meta').textContent = size;
+};
+$('#expanded-toggle-preview').onclick = () => $('#toggle-preview').click();
 $('#expand-preview').onclick = () => $('#preview-dialog').showModal();
 $('#close-preview').onclick = () => $('#preview-dialog').close();
+$('#preview-dialog').addEventListener('click', event => {
+    if (event.target !== $('#preview-dialog')) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.currentTarget.close();
+});
 try {
     $('#preview-fps').value = localStorage.getItem('razor-console.preview-fps') || '60'
 } catch {}
