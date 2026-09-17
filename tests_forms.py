@@ -9,6 +9,17 @@ from razor_console.services import ConfigStore
 
 
 class FormTests(unittest.TestCase):
+    def test_recoil_comment_groups_round_trip(self):
+        content = "[component.RecoilComponent]\npattern = [\n # default\n [0.1, 0, 8],\n # k416\n # [0.1, 2, 4],\n]\n"
+        pattern = "pattern = [\n # default\n # [0.1, 0, 8],\n # k416\n [0.1, 2, 4],\n]"
+        result = transform(content, [{"name": "component.RecoilComponent", "pattern": pattern}])
+        section = result["sections"][0]
+        self.assertEqual(section["data"]["pattern"], [[0.1, 2, 4]])
+        self.assertIn("# default", section["raw"])
+        self.assertIn("# [0.1, 0, 8]", section["raw"])
+        self.assertIn("# k416", section["raw"])
+        self.assertNotIn("profiles", section["data"])
+
     def test_class_label_can_be_added_changed_and_removed_without_changing_ids(self):
         content = "[selector]\nclass_priority = [\n # keep\n {class_id=0, priority=3, include=[1]},\n]\n"
         row = {"class_id": 0, "priority": 3, "include": [1], "label": "enemy"}

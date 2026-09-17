@@ -47,9 +47,6 @@
     </div>
     <button id="boot-settings">
      启动设置
-     <span>
-      ↗
-     </span>
     </button>
    </section>
    <section class="profile-bar panel">
@@ -106,7 +103,7 @@
        </h2>
       </div>
       <button class="quiet" id="player-settings">
-       全部设置 ↗
+       全部设置
       </button>
      </div>
      <div id="player-fields">
@@ -126,6 +123,7 @@
        </h2>
       </div>
       <div class="actions preview-header-controls">
+       <button id="toggle-preview">开启预览</button>
        <select aria-label="浏览器预览刷新率" id="preview-fps">
         <option>
          30
@@ -143,16 +141,15 @@
          240
         </option>
        </select>
-       <button aria-label="按原始尺寸查看" title="原始尺寸 · 1:1" id="expand-preview">
-        &lt;&gt;
-       </button>
-       <button id="toggle-preview">开启预览</button>
       </div>
 
      </div>
      <div class="preview-stage">
       <span id="frame-meta" class="frame-size-overlay">无画面</span>
       <img alt="Runtime 实时画面" hidden="" id="frame"/>
+      <button aria-label="按原始尺寸查看" title="原始尺寸 · 1:1" id="expand-preview" disabled>
+       &lt;&gt;
+      </button>
       <div id="frame-empty">
        <span class="preview-cross">
         ＋
@@ -164,7 +161,7 @@
         在渲染设置中启用 Console 画面输出
        </p>
        <button class="quiet" id="preview-settings">
-        配置画面输出 ↗
+        配置画面输出
        </button>
       </div>
      </div>

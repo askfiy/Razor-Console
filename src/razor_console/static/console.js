@@ -98,12 +98,12 @@ const labels = {
     active_save_interval: '活跃保存间隔（秒）',
     inactive_save_interval: '非活跃保存间隔（秒）',
     output_dir: '输出目录',
-    class_filter: '类别过滤',
+    class_filter: '仅保存类别',
     scale_lt_filter: '最小尺寸阈值',
     report_interval: '报告间隔（秒）',
     labels_button: '标签组按键',
     'player.labels_button': '标签组按键',
-    default: '默认值',
+    default: '选择全部标签组',
     options: '选项',
     label: '标签组',
     alias: '显示别名',
@@ -398,6 +398,12 @@ function unsavedChanges() {
         return total + Math.max(1, count);
     }, 0);
 }
+function syncSavebarSpace() {
+    const bar = $('.savebar');
+    $('#drawer').style.setProperty('--savebar-space', `${bar.hidden ? 0 : Math.ceil(bar.getBoundingClientRect().height)}px`);
+}
+new ResizeObserver(syncSavebarSpace).observe($('.savebar'));
+
 function renderSave() {
     const pending = state.modal?.changed ? state.modal.sections.reduce((total, entry) => total + (entry.changed || entry.rawChanged ? Math.max(1, changedValues(entry.original?.data, entry.data)) : 0), 0) + Number(state.modal.aliasesChanged) : 0;
     const count = unsavedChanges() + changedValues(state.savedAliases || {}, state.aliases || {}) + pending;
@@ -409,7 +415,8 @@ function renderSave() {
     $('#save-detail').textContent = dirty('boot') ? '保存后重启 Runtime' : '';
     $('#dirty-dot').classList.toggle('dirty', !!count);
     $('#save').disabled = !count || state.busy;
-    $('#discard').disabled = !count || state.busy
+    $('#discard').disabled = !count || state.busy;
+    syncSavebarSpace();
 }
 
 function render() {
@@ -433,7 +440,7 @@ function renderCore() {
         ['kalman', '≋', 'game', ''],
         ['controller', '⌁', 'game', `X ${data('game','controller').kp_x??'—'} / Y ${data('game','controller').kp_y??'—'}`]
     ];
-    $('#core-grid').innerHTML = cards.map(([key, icon, scope, summary]) => `<button class="core-card" data-core="${key}" data-scope="${scope}"><div class="core-top"><span class="module-icon">${icon}</span><span class="arrow">↗</span></div><strong>${labels[key]}</strong><small title="${esc(summary)}">${esc(summary)}</small></button>`).join('')
+    $('#core-grid').innerHTML = cards.map(([key, icon, scope, summary]) => `<button class="core-card" data-core="${key}" data-scope="${scope}"><div class="core-top"><span class="module-icon">${icon}</span></div><strong>${labels[key]}</strong><small title="${esc(summary)}">${esc(summary)}</small></button>`).join('')
 }
 
 function renderPlugins() {
@@ -444,7 +451,7 @@ function renderPlugins() {
             on = entry?.enabled || false;
         enabled += +on;
         const [title, description] = plugins[name] || [name, '自定义功能组件'];
-        return `<article class="plugin-card ${on?'':'off'}"><div class="plugin-top"><h3>${esc(title)}</h3><input class="switch" type="checkbox" aria-label="${esc(title)} 启用" data-toggle="${esc(name)}" ${on?'checked':''}></div><p class="muted">${esc(description)}</p><div class="plugin-bottom"><span>${on?'● 已启用':'○ 已停用'}</span><button class="quiet" data-plugin="${esc(name)}">设置 ↗</button></div></article>`
+        return `<article class="plugin-card ${on?'':'off'}"><div class="plugin-top"><h3>${esc(title)}</h3><input class="switch" type="checkbox" aria-label="${esc(title)} 启用" data-toggle="${esc(name)}" ${on?'checked':''}></div><p class="muted">${esc(description)}</p><div class="plugin-bottom"><span>${on?'● 已启用':'○ 已停用'}</span><button class="quiet" data-plugin="${esc(name)}">设置</button></div></article>`
     }).join('');
     $('#component-count').textContent = `${enabled} / ${names.length} 已启用`
 }
@@ -479,7 +486,7 @@ function renderLabelBindings() {
     const group = node('section', 'label-bindings');
     const heading = node('div', 'array-head');
     heading.append(node('h3', '', '标签组按键'));
-    const edit = node('button', 'quiet', '设置 ↗');
+    const edit = node('button', 'quiet', '设置');
     edit.type = 'button';
     edit.onclick = () => openDrawer('game', inline && !standalone ? ['player'] : ['player.labels_button'], '标签组按键');
     heading.append(edit);
@@ -503,7 +510,7 @@ function renderLabelBindings() {
             row.append(keysControl(token ? [token] : [], keys => change(keys[0] || ''), true));
             group.append(row);
         };
-        addRow('默认标签组按键', bindings.default, value => update({
+        addRow('选择全部标签组', bindings.default, value => update({
             default: value
         }));
         (bindings.options || []).forEach((item, index) => addRow(item.label || `标签 ${index+1}`, item.button, value => {
@@ -678,7 +685,7 @@ const explanations = {
     paused_button: '按键切换暂停运行状态，再次触发可恢复。', switch_button: '切换自动模式的按键。',
     aiming_button: '用于识别开镜状态的按键。', firing_button: '用于识别开火状态的按键。', follow_mode: '选择始终跟随、开火时跟随、开镜时跟随或不跟随。',
     button: '点击 Add 后按下要绑定的按键；点击已有按键可移除。',
-    labels_button: '将按键与标签组关联，用于切换当前允许选择的类别。', default: '默认标签组切换按键。',
+    labels_button: '按下标签组的绑定键后，该组内所有类别都可参与跟踪；选择全部标签组的按键用于恢复全部已绑定标签组。', default: '按下此键后，选择全部已绑定标签组，让这些组内的所有类别都可参与跟踪。',
     options: '可添加多条独立规则。',
     url: '采集源地址；不同采集源使用不同的设备名、共享内存名或网络地址。',
     '采集源类型': '选择采集卡、共享内存、UDP、OBS 或自定义地址。',
@@ -693,7 +700,7 @@ const explanations = {
     axis_mask_x: '屏蔽手动输入的 X 轴移动。', axis_mask_y: '屏蔽手动输入的 Y 轴移动。',
     weight_position: '滤波或预测中的位置权重。', weight_velocity: '滤波或预测中的速度权重。',
     x_scale: 'X 轴输出的缩放倍数。', y_scale: 'Y 轴输出的缩放倍数。', search_ratio: '搜索区域相对画面的比例。',
-    filter_classes: '需要过滤的模型类别编号。', class_filter: '限定处理的模型类别编号。',
+    filter_classes: '需要过滤的模型类别编号。', class_filter: '仅保存所选类别；未配置或空列表均不保存目标类别（负样本采集另计）。全部类别会添加当前配置中的所有类别。',
     output_dir: '采集数据的输出目录。', only_lost_mode: '仅在目标丢失时采集数据。',
     host: '目标设备的主机名或 IP 地址。', port: '连接设备使用的端口。', monitor_port: '接收设备状态的监听端口。', com_port: '连接设备使用的串口名称。', key: '连接设备所需的密钥。'
 };
@@ -772,6 +779,13 @@ function field(key, value, onChange, opts = {}) {
         range.max = bounds.max;
         range.step = bounds.step;
         range.value = number.value = value;
+        if (key === 'imgsz') {
+            number.classList.add('render-size-input');
+            number.placeholder = '自动';
+            number.required = false;
+            number.min = 0;
+            if (value === 0) number.value = '';
+        }
         number.id = id;
         range.setAttribute('aria-label', `${labels[key]||key} 滑块`);
         range.oninput = () => {
@@ -779,11 +793,18 @@ function field(key, value, onChange, opts = {}) {
             onChange(Number(range.value))
         };
         number.oninput = () => {
+            if (key === 'imgsz' && number.value === '' && !number.validity.badInput) {
+                onChange(0);
+                return;
+            }
             if (number.value === '' || !Number.isFinite(number.valueAsNumber)) return;
             range.min = Math.min(Number(range.min), number.valueAsNumber);
             range.max = Math.max(Number(range.max), number.valueAsNumber);
             range.value = number.value;
             onChange(number.valueAsNumber)
+        };
+        if (key === 'imgsz') number.onblur = () => {
+            if (number.valueAsNumber === 0) number.value = '';
         };
         if (opts.defineClass) {
             number.onchange = number.oninput;
@@ -937,6 +958,7 @@ function className(id) {
 
 function classPicker(value, onChange, opts = {}) {
     const ids = new Set([Number(value)]);
+    for (const id of classLabels().keys()) ids.add(id);
     for (const row of data('game', 'inferencer').conf_thresholds || []) ids.add(Number(row.class_id));
     for (const row of data('game', 'selector').class_priority || []) {
         ids.add(Number(row.class_id));
@@ -948,7 +970,7 @@ function classPicker(value, onChange, opts = {}) {
         option.title = `class_id = ${id}`;
         return option;
     }));
-    if (value === opts.excludeClass) {
+    if (opts.excludeClass !== undefined && value === opts.excludeClass) {
         const placeholder = new Option('请选择其他类别', '');
         placeholder.disabled = true;
         select.prepend(placeholder);
@@ -965,6 +987,18 @@ function arrayTitle(key, item, index) {
         if (id !== undefined) return className(id);
     }
     return String(index + 1).padStart(2, '0');
+}
+
+function focusAddedItem(item) {
+    if (!item) return;
+    requestAnimationFrame(() => {
+        if (!item.isConnected) return;
+        const control = item.matches('button') ? item : item.querySelector('select, input:not([type="range"]), textarea') || item.querySelector('.key-add-actions button, button');
+        const target = control || item;
+        if (!control) target.tabIndex = -1;
+        target.focus({preventScroll: true});
+        item.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'});
+    });
 }
 
 function hsvField(value, onChange) {
@@ -985,6 +1019,7 @@ function hsvField(value, onChange) {
             ]);
             onChange(clone(values));
             paint();
+            focusAddedItem(wrap.querySelector(':scope > .array-row:last-child'));
         };
         head.append(add);
         wrap.append(head);
@@ -1057,13 +1092,13 @@ function arrayField(key, value, onChange, opts = {}) {
         const add = node('button', '', '＋ 添加');
         add.type = 'button';
         add.onclick = () => {
-            if (key === 'include') {
+            if (key === 'include' || key === 'class_filter') {
                 const available = [...classPicker(undefined, () => {}, opts).options]
                     .filter(option => !items.includes(Number(option.value)));
                 const menu = node('div', 'include-menu');
                 menu.setAttribute('popover', 'auto');
                 menu.setAttribute('role', 'menu');
-                menu.setAttribute('aria-label', '选择包含类别');
+                menu.setAttribute('aria-label', key === 'class_filter' ? '选择仅保存类别' : '选择包含类别');
                 add.setAttribute('aria-haspopup', 'menu');
                 add.setAttribute('aria-expanded', 'true');
                 const choices = available.map(option => {
@@ -1076,11 +1111,27 @@ function arrayField(key, value, onChange, opts = {}) {
                         items.push(Number(option.value));
                         onChange(clone(items));
                         paint();
-                        wrap.querySelector('.array-head button')?.focus({preventScroll: true});
+                        focusAddedItem(wrap.querySelector('.include-chip:last-child'));
                     };
                     menu.append(choice);
                     return choice;
                 });
+                if (key === 'class_filter') {
+                    const all = node('button', 'include-option', '全部类别');
+                    all.type = 'button';
+                    all.setAttribute('role', 'menuitem');
+                    all.disabled = !available.length;
+                    all.onclick = () => {
+                        menu.hidePopover();
+                        const firstAdded = items.length;
+                        items.push(...available.map(option => Number(option.value)));
+                        onChange(clone(items));
+                        paint();
+                        focusAddedItem(wrap.querySelectorAll('.include-chip')[firstAdded]);
+                    };
+                    menu.prepend(all);
+                    choices.unshift(all);
+                }
                 if (!choices.length) menu.append(node('p', 'muted', '无可添加类别'));
                 menu.onkeydown = event => {
                     const index = choices.indexOf(document.activeElement);
@@ -1125,20 +1176,21 @@ function arrayField(key, value, onChange, opts = {}) {
                 items.push({...clone(rowDefaults[key]), class_id: classId});
             } else items.push(clone(rowDefaults[key] ?? (items.length ? items[items.length - 1] : 0)));
             onChange(clone(items));
-            paint()
+            paint();
+            focusAddedItem(wrap.querySelector(':scope > .array-row:last-child'));
         };
         head.append(add);
         wrap.append(head);
-        const includeChips = key === 'include' ? node('div', 'include-chips') : null;
+        const includeChips = key === 'include' || key === 'class_filter' ? node('div', 'include-chips') : null;
         if (includeChips) wrap.append(includeChips);
-        if (!items.length) wrap.append(node('p', 'muted', '暂无条目'));
+        if (!items.length) wrap.append(node('p', 'muted', key === 'class_filter' ? '未选择保存类别' : '暂无条目'));
         items.forEach((item, index) => {
-            if (key === 'include') {
+            if (key === 'include' || key === 'class_filter') {
                 const alias = classLabels().get(Number(item));
                 const chip = node('button', 'include-chip', alias || `[${item}]`);
                 chip.type = 'button';
                 chip.title = `删除 ${className(item)} · ID ${item}`;
-                chip.setAttribute('aria-label', `删除包含类别 ${className(item)}，ID ${item}`);
+                chip.setAttribute('aria-label', `删除${key === 'class_filter' ? '保存' : '包含'}类别 ${className(item)}，ID ${item}`);
                 chip.onclick = () => {
                     items.splice(index, 1);
                     onChange(clone(items));
@@ -1182,6 +1234,7 @@ function arrayField(key, value, onChange, opts = {}) {
                 const drawAxes = () => {
                     axes.replaceChildren();
                     const random = mode.value === 'rand';
+                    axes.classList.toggle('random-offset', random);
                     for (const [axis, name] of ['X', 'Y'].entries()) {
                         const axisRow = node('div', 'aim-part-axis');
                         axisRow.append(node('span', 'field-label', name));
@@ -1190,7 +1243,8 @@ function arrayField(key, value, onChange, opts = {}) {
                             const cell = node('label', 'aim-part-value');
                             const caption = node('span', 'muted', random ? (bound ? '最大值' : '最小值') : '偏移');
                             attachHelp(caption, random ? 'rand' : 'norm');
-                            cell.append(caption);
+                            if (random) cell.append(caption);
+                            else attachHelp(cell, 'norm');
                             const input = node('input');
                             input.type = 'number';
                             input.step = 'any';
@@ -1226,10 +1280,13 @@ function arrayField(key, value, onChange, opts = {}) {
                     drawAxes();
                 };
                 drawAxes();
-                row.append(axes, field('focus_child', item.focus_child || false, x => {
+                row.append(axes);
+                const focusField = field('focus_child', item.focus_child || false, x => {
                     item.focus_child = x;
                     onChange(clone(items));
-                }, {compact: true}));
+                }, {compact: true});
+                focusField.classList.add('aim-part-focus');
+                row.append(focusField);
             } else if (item && typeof item === 'object' && !Array.isArray(item)) {
                 row.classList.add('record-row');
                 const fields = key === 'class_priority' ? {
@@ -1494,6 +1551,210 @@ function drawHardwarePicker(devices) {
     renderSelected();
 }
 
+function parseRecoilGroups(raw, fallback = []) {
+    const body = raw.match(/^\s*pattern\s*=\s*\[([^]*?)^\s*\]\s*(?:#.*)?$/m)?.[1];
+    if (body === undefined) return {profiles: fallback.length ? [{name: '默认配置', pattern: clone(fallback)}] : [], active: fallback.length ? '默认配置' : ''};
+    const profiles = [];
+    let current = null;
+    const activeNames = new Set();
+    for (const line of body.split('\n')) {
+        const row = line.match(/^\s*(#\s*)?\[([^\[\]]+)\]\s*,?\s*(?:#.*)?$/);
+        if (row) {
+            const point = row[2].split(',').filter(x => x.trim()).map(x => Number(x.trim().replaceAll('_', '')));
+            if (point.length !== 3 || !point.every(Number.isFinite)) continue;
+            if (!current) { current = {name: '默认配置', pattern: []}; profiles.push(current); }
+            current.pattern.push(point);
+            if (!row[1]) activeNames.add(current.name);
+        } else {
+            const name = line.match(/^\s*#\s*([^\[\]\n].*?)\s*$/)?.[1];
+            if (name) { current = {name, pattern: []}; profiles.push(current); }
+        }
+    }
+    return {profiles, active: [...activeNames][0] || ''};
+}
+
+function serializeRecoilGroups(profiles, active) {
+    const lines = ['pattern = ['];
+    for (const profile of profiles) {
+        lines.push(`  # ${profile.name.replace(/[\r\n]/g, ' ')}`);
+        for (const point of profile.pattern) lines.push(`  ${profile.name === active ? '' : '# '}[${point.join(', ')}],`);
+    }
+    lines.push(']');
+    return lines.join('\n');
+}
+
+function recoilEditor(entry) {
+    const parsed = parseRecoilGroups(entry.pattern ?? entry.raw, entry.data.pattern || []);
+    const profiles = parsed.profiles;
+    let active = parsed.active;
+    let selected = Math.max(0, profiles.findIndex(profile => profile.name === active));
+    let editingName = false;
+    const wrap = node('section', 'recoil-editor');
+    function changed() {
+        entry.pattern = serializeRecoilGroups(profiles, active);
+        entry.data.pattern = clone(profiles.find(p => p.name === active)?.pattern || []);
+        entry.changed = true;
+        state.modal.changed = true;
+    }
+    function validateNames() {
+        wrap.querySelectorAll('.recoil-name').forEach(input => {
+            const index = Number(input.dataset.index);
+            const name = profiles[index].name;
+            input.setCustomValidity(!name.trim() ? '请输入配置名称' : profiles.some((p, i) => i !== index && p.name === name) ? '配置名称不能重复' : '');
+        });
+    }
+    function paint() {
+        wrap.replaceChildren();
+        const head = node('div', 'recoil-picker field');
+        const picker = node('select');
+        picker.setAttribute('aria-label', '选择编辑的压枪组');
+        const updatePicker = () => {
+            picker.replaceChildren(...profiles.map((profile, index) => {
+                const option = new Option(profile.name, String(index));
+                if (profile.name === active) option.dataset.status = '生效';
+                return option;
+            }));
+            if (!profiles.length) picker.append(new Option('暂无压枪组', ''));
+            picker.disabled = !profiles.length;
+            picker.value = profiles.length ? String(selected) : '';
+        };
+        updatePicker();
+        picker.onchange = () => {
+            if (!$('#drawer-form').reportValidity()) { picker.value = String(selected); return; }
+            selected = Number(picker.value);
+            editingName = false;
+            paint();
+            wrap.querySelector('.recoil-picker select')?.focus({preventScroll: true});
+        };
+        const pickerSlot = node('div', 'recoil-picker-slot');
+        const pickerActions = node('div', 'recoil-picker-actions');
+        const pickerControl = node('div', 'recoil-picker-control');
+        pickerSlot.append(picker);
+        pickerControl.append(pickerSlot, pickerActions);
+        head.append(node('span', 'field-label', '压枪组'), pickerControl);
+        const addGroup = node('button', 'quiet recoil-new', '新建');
+        addGroup.type = 'button';
+        addGroup.onclick = () => {
+            if (!$('#drawer-form').reportValidity()) return;
+            let n = 1;
+            while (profiles.some(p => p.name === `配置 ${n}`)) n++;
+            profiles.push({name: `配置 ${n}`, pattern: []});
+            selected = profiles.length - 1;
+            editingName = true;
+            changed(); paint();
+            wrap.querySelector('.recoil-name')?.focus();
+        };
+        pickerActions.append(addGroup);
+        wrap.append(head);
+        if (!profiles.length) wrap.append(node('p', 'muted', '暂无配置组，添加后选择要生效的组。'));
+        profiles.forEach((profile, index) => {
+            if (index !== selected) return;
+            const card = node('section', 'recoil-group');
+            const bar = node('div', 'recoil-group-head');
+            const name = node('input', 'recoil-name');
+            name.dataset.index = String(index);
+            name.value = profile.name;
+            name.placeholder = '配置名称';
+            name.required = true;
+            name.hidden = !editingName;
+            picker.hidden = editingName;
+            name.setAttribute('aria-label', `配置组 ${index + 1} 名称`);
+            name.oninput = () => {
+                if (active === profile.name) active = name.value;
+                profile.name = name.value;
+                validateNames(); changed(); updatePicker();
+            };
+            const beginRename = () => {
+                const menu = selectMenus.get(picker);
+                if (menu?.matches(':popover-open')) menu.hidePopover();
+                editingName = true;
+                name.hidden = false;
+                picker.hidden = true;
+                name.focus(); name.select();
+            };
+            const finishRename = () => {
+                if (!name.checkValidity()) return false;
+                editingName = false;
+                name.hidden = true;
+                picker.hidden = false;
+                return true;
+            };
+            picker.title = '双击重命名';
+            picker.ondblclick = event => { event.preventDefault(); beginRename(); };
+            picker.addEventListener('keydown', event => {
+                if (event.key === 'F2') { event.preventDefault(); beginRename(); }
+            });
+            name.onblur = finishRename;
+            name.onkeydown = event => {
+                if (event.key === 'Enter') { event.preventDefault(); if (finishRename()) picker.focus({preventScroll: true}); }
+            };
+            const use = node('button', 'quiet recoil-activate', '生效');
+            use.type = 'button';
+            use.setAttribute('aria-pressed', String(active === profile.name));
+            use.title = '每次仅一组生效；再次点击当前组可停用';
+            use.onclick = () => {
+                if (!$('#drawer-form').reportValidity()) return;
+                active = active === profile.name ? '' : profile.name;
+                changed(); paint();
+            };
+            const remove = node('button', 'quiet danger recoil-delete', '删除');
+            remove.type = 'button';
+            remove.setAttribute('aria-label', `删除配置组 ${index + 1}`);
+            remove.onclick = () => {
+                if (active === profile.name) active = '';
+                profiles.splice(index, 1);
+                selected = Math.max(0, Math.min(index, profiles.length - 1));
+                editingName = false;
+                changed(); paint();
+            };
+            const heading = node('span', 'field-label recoil-content-title', '补偿序列');
+            bar.append(heading);
+            pickerSlot.append(name);
+            pickerActions.replaceChildren(use, remove, addGroup);
+            card.append(bar);
+            const columns = node('div', 'recoil-columns');
+            for (const caption of ['时间（秒）', 'X 轴', 'Y 轴', '']) columns.append(node('span', 'muted', caption));
+            card.append(columns);
+            const rows = node('div', 'recoil-rows');
+            const paintRows = () => {
+                rows.replaceChildren();
+                profile.pattern.forEach((point, rowIndex) => {
+                    const row = node('div', 'recoil-point');
+                    point.forEach((value, axis) => {
+                        const input = node('input');
+                        input.type = 'number'; input.step = 'any'; input.required = true;
+                        if (!axis) input.min = 0;
+                        input.value = value;
+                        input.setAttribute('aria-label', `配置组 ${index + 1} 第 ${rowIndex + 1} 行 ${['时间（秒）', 'X 轴', 'Y 轴'][axis]}`);
+                        input.oninput = () => {
+                            if (!Number.isFinite(input.valueAsNumber)) return;
+                            point[axis] = input.valueAsNumber; changed();
+                        };
+                        row.append(input);
+                    });
+                    const del = node('button', 'quiet', '×');
+                    del.type = 'button'; del.setAttribute('aria-label', `删除配置组 ${index + 1} 第 ${rowIndex + 1} 行`);
+                    del.onclick = () => { profile.pattern.splice(rowIndex, 1); changed(); paintRows(); };
+                    row.append(del); rows.append(row);
+                });
+            };
+            paintRows(); card.append(rows);
+            const add = node('button', '', '＋ 添加行');
+            add.type = 'button';
+            add.onclick = () => {
+                const last = profile.pattern.at(-1);
+                const nextTime = !last ? 0.1 : last[0] === 0.1 ? 0.5 : Number((last[0] + 0.5).toFixed(6));
+                profile.pattern.push([nextTime, last?.[1] ?? 0, last?.[2] ?? 0]);
+                changed(); paintRows(); focusAddedItem(rows.lastElementChild);
+            };
+            card.append(add); wrap.append(card);
+        });
+        if (profiles.length) wrap.append(node('p', 'muted recoil-help', '时间为开火后的秒数；X / Y 为累计补偿量。同时仅一组生效。'));
+        validateNames();
+    }
+    paint(); return wrap;
+}
+
 function drawEntry(entry, root = $('#drawer-content'), hideEnable = false) {
     root.append(node('h3', 'group-title', labels[entry.name] || ({
         'kalman.filter': '滤波 · Filter',
@@ -1531,7 +1792,7 @@ function drawEntry(entry, root = $('#drawer-content'), hideEnable = false) {
     const fieldHost = entry.name === 'controller' ? node('div', 'controller-grid') : root;
     if (fieldHost !== root) root.append(fieldHost);
     for (const [key, value] of fields) {
-        if (entry.name === 'component.RecoilComponent' && key === 'pattern') continue;
+        if (entry.name === 'component.RecoilComponent' && ['pattern', 'profiles', 'active_profile'].includes(key)) continue;
         fieldHost.append(field(key, value, v => {
             entry.data[key] = v;
             entry.edits[key] = v;
@@ -1543,27 +1804,7 @@ function drawEntry(entry, root = $('#drawer-content'), hideEnable = false) {
             labelBinding: entry.name === 'player.labels_button' || (entry.name === 'player' && key === 'labels_button')
         }))
     }
-    if (entry.name === 'component.RecoilComponent') {
-        root.append(node('label', 'raw-label', 'Pattern · 原始 TOML'));
-        let pattern;
-        const match = entry.raw.match(/^pattern\s*=\s*\[/m);
-        if (match) {
-            const start = match.index;
-            let end = entry.raw.length;
-            for (let i = start + match[0].length; i < entry.raw.length; i++) {
-                if (entry.raw[i] === '\n' && /^\s*[A-Za-z_]\w*\s*=/.test(entry.raw.slice(i + 1))) {
-                    end = i;
-                    break
-                }
-            }
-            pattern = entry.raw.slice(start, end).trimEnd()
-        } else pattern = 'pattern = []';
-        root.append(RazorToml.create(pattern, 'Recoil pattern 原始 TOML', value => {
-            entry.pattern = value;
-            entry.changed = true;
-            state.modal.changed = true;
-        }))
-    }
+    if (entry.name === 'component.RecoilComponent') root.append(recoilEditor(entry));
     if (!Object.keys(entry.data).length) root.append(node('p', 'empty-note', '此组件使用默认行为，无需额外参数。通过主页开关启用或停用。'))
 }
 
@@ -1622,7 +1863,6 @@ async function closeDrawer(close = true) {
                 result.data = {
                     ...(s.original ? s.edits : s.data)
                 };
-                if (s.name === 'component.RecoilComponent') delete result.data.pattern;
                 if (s.pattern !== undefined) result.pattern = s.pattern
             }
             return result
@@ -1852,9 +2092,11 @@ function setLogFollow(enabled) {
     if (followLogs) $('#log-list').scrollTop = $('#log-list').scrollHeight;
 }
 $('#follow-logs').onclick = () => setLogFollow(!followLogs);
-$('#log-list').addEventListener('wheel', () => {
-    if (followLogs) setLogFollow(false);
-}, {passive: true});
+for (const eventName of ['wheel', 'touchmove']) {
+    $('#log-list').addEventListener(eventName, () => {
+        if (followLogs) setLogFollow(false);
+    }, {passive: true});
+}
 function selectOutput(name) {
     for (const view of ['preview', 'logs']) {
         const selected = view === name;
@@ -2007,7 +2249,9 @@ $('#frame').onload = () => {
     $('#original-frame-meta').textContent = size;
 };
 $('#expanded-toggle-preview').onclick = () => $('#toggle-preview').click();
-$('#expand-preview').onclick = () => $('#preview-dialog').showModal();
+$('#expand-preview').onclick = () => {
+    if (state.live && awaitSavedBridge()) $('#preview-dialog').showModal();
+};
 $('#close-preview').onclick = () => $('#preview-dialog').close();
 $('#preview-dialog').addEventListener('click', event => {
     if (event.target !== $('#preview-dialog')) return;
@@ -2083,6 +2327,10 @@ function openSelectMenu(select) {
     select.setAttribute('aria-expanded', 'true');
     const buttons = [...select.options].filter(option => !option.hidden).map(option => {
         const button = node('button', 'select-option', option.textContent);
+        if (option.dataset.status) {
+            button.classList.add('select-option-with-status');
+            button.replaceChildren(node('span', 'select-option-label', option.textContent), node('span', 'select-option-status', option.dataset.status));
+        }
         button.type = 'button';
         button.disabled = option.disabled || option.parentElement.disabled === true;
         button.setAttribute('role', 'option');

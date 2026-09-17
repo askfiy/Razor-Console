@@ -1,5 +1,5 @@
 :root {
-    --bg: #080808;
+    --bg: #000000;
     --panel: #141414;
     --raised: #202020;
     --line: #333333;
@@ -308,10 +308,6 @@ h2 {
 .module-icon {
     color: var(--green);
     font: 20px Consolas, monospace
-}
-
-.arrow {
-    color: #67776c
 }
 
 .core-card strong {
@@ -810,6 +806,43 @@ dialog::backdrop {
     border-bottom: 1px solid var(--line)
 }
 
+
+.recoil-editor { margin-top: 18px; }
+.recoil-picker { padding: 0; border: 0; }
+.recoil-picker-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-width: 0; align-items: center; }
+.recoil-picker select { width: 100%; min-width: 0; }
+.recoil-picker-slot { min-width: 0; }
+.recoil-picker-slot select, .recoil-picker-slot .recoil-name { width: 100%; height: 36px; margin: 0; }
+.recoil-picker-actions { display: flex; align-items: center; gap: 6px; }
+.recoil-picker .recoil-picker-actions button { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; border: 0; }
+.recoil-picker-actions .recoil-activate,
+.recoil-picker-actions .recoil-delete,
+.recoil-picker-actions .recoil-new { background: transparent; color: var(--muted); }
+.recoil-picker-actions .recoil-activate[aria-pressed="true"] { background: var(--green); color: #080808; }
+.recoil-picker-actions .recoil-activate:not(:disabled):hover { background: var(--green); color: #080808; }
+.recoil-picker-actions .recoil-delete:not(:disabled):hover { background: transparent; color: #f0646b; }
+.recoil-picker-actions .recoil-new:not(:disabled):hover { background: transparent; color: var(--muted); }
+.recoil-picker button { white-space: nowrap; padding: 7px 10px; }
+.recoil-group { padding: 16px 0 0; margin-top: 16px; border-top: 1px solid var(--line); }
+.recoil-group-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.recoil-content-title { margin-right: auto; }
+.recoil-name { width: 100%; min-width: 0; height: 34px; margin-bottom: 12px; }
+.recoil-columns, .recoil-point { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 24px; gap: 8px; align-items: center; }
+.recoil-columns { margin-bottom: 6px; }
+.recoil-point { margin-bottom: 6px; }
+.recoil-point input { width: 100%; min-width: 0; height: 32px; padding: 4px 7px; }
+.recoil-group-head input, .recoil-group-head button { height: 32px; padding: 4px 8px; }
+.recoil-group button { white-space: nowrap; }
+.recoil-group .quiet { padding: 0 4px; height: 30px; font-size: 11px; }
+.recoil-group > button { margin-top: 8px; padding: 5px 10px; height: 30px; }
+.recoil-help { margin: 14px 0 0; font-size: 11px; line-height: 1.6; }
+@media (max-width: 600px) {
+    .recoil-picker-control { grid-template-columns: minmax(0, 1fr); }
+    .recoil-picker-actions { justify-content: flex-end; }
+    .recoil-group-head { gap: 8px; }
+    .recoil-group-head button { font-size: 11px; padding: 4px 6px; }
+}
+
 .array-head {
     display: flex;
     justify-content: space-between;
@@ -1170,7 +1203,7 @@ body.busy #confirm-dialog button {
 .toml-surface {
     position: relative;
     height: 420px;
-    background: #111613
+    background: #1e1e1e
 }
 
 .toml-surface .code-editor,
@@ -1371,6 +1404,13 @@ body.busy #confirm-dialog button {
     border: 0;
     min-width: 0;
 }
+.collection-options > .record-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.collection-options > .record-row > .field { gap: 8px; }
+.collection-options .field-control > select { height: 36px; }
+.collection-options .keys { min-height: 36px; align-items: center; }
+.collection-options .keys > button,
+.collection-options .keys .key-add-actions > button,
+.collection-options .key { height: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .record-row .numeric { gap: 8px; }
 .record-row .numeric input[type=number] { width: 65px; }
 .collection-conf_thresholds > .record-row { grid-template-columns: 85px 1.4fr 1fr; }
@@ -1411,6 +1451,15 @@ input::placeholder { color: var(--muted); opacity: .75; }
 .collection-include { display: block; }
 .collection-include > .array-head { gap: 6px; margin: 0 0 10px; }
 .include-chips { display: flex; gap: 5px; overflow-x: auto; flex-wrap: nowrap; }
+.collection-class_filter > .array-head { gap: 12px; margin-bottom: 12px; }
+.collection-class_filter .include-chips { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; overflow: visible; }
+.collection-class_filter .include-chip { min-width: 0; width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.numeric input.render-size-input:placeholder-shown { text-align: center; appearance: textfield; }
+.render-size-input:placeholder-shown::-webkit-inner-spin-button,
+.render-size-input:placeholder-shown::-webkit-outer-spin-button { appearance: none; margin: 0; }
+@media (max-width: 600px) {
+    .collection-class_filter .include-chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .collection-include > .array-head > span { font-size: 11px; }
 .include-chip { flex: 0 0 auto; padding: 5px 7px; color: var(--green); }
 .include-chip:hover, .include-chip:focus-visible { color: #ff7878; border-color: #ff7878; background: #3a2020; }
@@ -1477,7 +1526,8 @@ input::placeholder { color: var(--muted); opacity: .75; }
 #log-list .log-level-error .log-token-level { color: #ef8585; }
 #log-list .log-level-critical .log-token-level { color: #efa0ce; }
 .savebar { inset: auto 0 0; margin: 0; border: 0; border-top: 1px solid var(--line); z-index: 2147483647; color: var(--text); }
-#drawer:has(.savebar:popover-open) #drawer-content { padding-bottom: 90px; }
+#drawer:has(.savebar:popover-open) #drawer-content { padding-bottom: calc(var(--savebar-space, 72px) + 20px); }
+#drawer-content { scroll-padding-top: 12px; scroll-padding-bottom: calc(var(--savebar-space, 0px) + 20px); }
 .savebar::backdrop { background: transparent; pointer-events: none; }
 
 /* Shared surface transitions for interactive states. */
@@ -1564,6 +1614,11 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
     background: var(--green); color: #080808; outline: none;
 }
 .select-menu .select-option:disabled { background: transparent; color: #888; opacity: 1; }
+.select-menu .select-option-with-status { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.select-option-label { min-width: 0; overflow-wrap: anywhere; }
+.select-option-status { flex: none; font-size: 11px; color: var(--green); }
+.select-menu:not([data-keyboard=true]) .select-option:hover .select-option-status,
+.select-menu[data-keyboard=true] .select-option:focus .select-option-status { color: #080808; }
 
 /* Menu feedback is immediate; selected value does not compete with the pointer. */
 :is(.select-menu, .include-menu, .key-special-menu) button {
@@ -1609,6 +1664,10 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
 
 .frame-size-overlay { position: absolute; top: 10px; left: 12px; z-index: 1; padding: 3px 6px; border-radius: 3px; background: #080808b3; color: #aaa; font: 11px Consolas, monospace; pointer-events: none; }
 .preview-header-controls > button, .preview-header-controls > select { height: 32px; }
+#toggle-preview, #expand-preview, #expanded-toggle-preview { display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; height: 32px; line-height: 1; text-align: center; white-space: nowrap; }
+#expand-preview { width: 34px; padding: 0; flex: 0 0 34px; }
+.preview-stage > #expand-preview { position: absolute; right: 12px; bottom: 12px; z-index: 2; background: #080808cc; }
+.preview-stage > #expand-preview:not(:disabled):hover { background: var(--green); color: #080808; border-color: var(--green); }
 #toggle-preview { background: var(--raised); color: var(--text); border-color: var(--line); }
 #toggle-preview:not(:disabled):hover { background: var(--green); color: #080808; border-color: var(--green); }
 
@@ -1628,4 +1687,84 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
     #output-logs .panel-head h2 { font-size: 15px; }
     #output-logs #log-count { display: block; margin: 3px 0 0; width: fit-content; }
     #output-logs .eyebrow { display: none; }
+}
+
+/* Keep phone controls readable without changing the desktop layout. */
+@media (max-width: 600px) {
+    .topbar { height: auto; padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+    .brand, .brandmark { white-space: nowrap; flex-shrink: 0; }
+    .runtime { width: 100%; gap: 8px; }
+    .runtime .status { margin-right: auto; white-space: nowrap; font-size: 11px; }
+    .runtime button { white-space: nowrap; padding: 8px 10px; }
+    main { padding: 20px 12px 100px; }
+    .page-heading { gap: 8px; margin-bottom: 18px; }
+    .page-heading .eyebrow { font-size: 9px; letter-spacing: 1px; }
+    .page-heading > button { padding: 8px 10px; }
+    .profile-bar { padding: 12px; gap: 12px; }
+    .profile-icon { display: none; }
+    .profile-picker { flex-basis: 100%; min-width: 0; gap: 10px; }
+    .profile-picker label { white-space: nowrap; flex-shrink: 0; }
+    .profile-picker select { flex: 1; min-width: 0; }
+    .profile-actions { width: 100%; gap: 8px; }
+    .profile-actions button { flex: 1; }
+    .loader { width: 100%; justify-content: space-between; gap: 8px; align-items: center; }
+    #loader-text { min-width: 0; overflow-wrap: anywhere; }
+    #use-profile { flex-shrink: 0; padding: 7px; }
+    .core-grid, .plugin-grid { gap: 8px; }
+    .core-card, .plugin-card { padding: 12px; }
+    .plugin-top { gap: 6px; }
+    .plugin-top .switch { flex-shrink: 0; }
+    .plugin-card h3 { overflow-wrap: anywhere; }
+    .section-heading { margin: 22px 0 10px; }
+    .section-heading h2 span { margin-left: 6px; font-size: 8px; letter-spacing: 1px; }
+    .middle-grid { gap: 16px; }
+    .middle-grid > .input-panel { height: auto; min-height: 0; }
+    .input-panel .panel-head { padding: 16px 14px; }
+    #player-fields { padding: 4px 14px 12px; }
+    #player-fields .field { grid-template-columns: 85px minmax(0, 1fr); gap: 8px; }
+    #output-logs, #output-preview { grid-template-rows: 104px minmax(0, 1fr); min-height: 364px; }
+    #output-logs > .panel-head, #output-preview > .panel-head { flex-wrap: nowrap; flex-direction: column; align-items: stretch; justify-content: center; gap: 10px; }
+    #output-preview .eyebrow { display: none; }
+    #output-logs #log-count { display: inline-block; margin: 0 0 0 6px; }
+    #output-logs .log-toolbar { margin: 0; justify-content: space-between; gap: 6px; }
+    .preview-header-controls { justify-content: flex-end; gap: 8px; }
+    #output-logs #log-list { top: 104px; padding: 8px 12px; }
+    #log-list .log-line { grid-template-columns: 52px minmax(0, 1fr); gap: 3px 8px; }
+    #log-list .log-message { grid-column: 1 / -1; overflow-wrap: anywhere; }
+    #drawer, #drawer.wide { overflow: hidden; left: 0; right: 0; width: 100%; max-width: 100%; }
+    .drawer-head { padding: 18px 16px; gap: 12px; }
+    .drawer-head > div { min-width: 0; overflow-wrap: anywhere; }
+    #drawer-content { padding: 4px 16px 24px; min-height: 0; }
+    .record-row { padding: 12px 28px 12px 12px; gap: 16px 12px; }
+    .record-row .numeric { flex-wrap: wrap; gap: 8px; }
+    .record-row .numeric input[type=range] { flex-basis: 100%; }
+    .record-row .numeric input[type=number] { width: 100%; }
+    .include-chips { flex-wrap: wrap; overflow: visible; min-width: 0; }
+    .include-chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+    .savebar { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+    .savebar .actions { margin-left: auto; gap: 8px; }
+    .savebar button { padding: 8px 10px; }
+}
+
+/* Each Aim Part rule uses one compact row of controls. */
+.aim-part-rule { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.1fr) repeat(2, minmax(0, 1fr)) auto auto; align-items: end; gap: 12px; padding: 10px 12px; }
+.aim-part-rule > .array-row-head { order: 10; margin: 0 0 5px; }
+.aim-part-rule > .array-row-head > span { display: none; }
+.aim-part-rule > .field { display: flex; flex-direction: column; align-items: stretch; gap: 5px; padding: 0; border: 0; min-width: 0; }
+.aim-part-rule .field-label { font-size: 11px; line-height: 16px; white-space: nowrap; }
+.aim-part-rule select, .aim-part-value input { height: 30px; padding: 4px 6px; }
+.aim-part-rule .aim-part-axes { display: contents; }
+.aim-part-rule .aim-part-axis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; min-width: 0; align-content: start; }
+.aim-part-rule .aim-part-axis > .field-label { grid-column: 1 / -1; }
+.aim-part-rule .aim-part-value { gap: 3px; }
+.aim-part-rule .aim-part-axes:not(.random-offset) .aim-part-value { grid-column: 1 / -1; }
+.aim-part-rule .random-offset .aim-part-value > span { display: none; }
+.aim-part-rule > .aim-part-focus { width: auto; flex: 0 0 auto; }
+.aim-part-focus .field-control { display: flex; align-items: center; height: 30px; }
+@media (max-width: 600px) {
+    .aim-part-rule { gap: 5px; padding: 8px; }
+    .aim-part-rule .field-label { font-size: 10px; }
+    .aim-part-rule > .aim-part-focus .field-label { white-space: normal; max-width: 30px; line-height: 12px; }
+    .aim-part-rule select, .aim-part-value input { font-size: 11px; padding: 4px 3px; }
+    .aim-part-rule > .array-row-head { flex-shrink: 0; }
 }
