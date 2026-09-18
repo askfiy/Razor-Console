@@ -39,7 +39,7 @@ const labels = {
     conf_thresholds: '分类置信度',
     class_id: '类别 ID',
     threshold: '置信度阈值',
-    dynamic_threshold: '动态阈值',
+    dynamic_threshold: '动态置信度阈值',
     class_priority: '类别优先级',
     priority: '优先级',
     include: '包含类别',
@@ -629,6 +629,17 @@ function keysControl(value, onChange, single = false) {
 }
 
 function numberBounds(key, value) {
+    const fixed = {
+        kp_x: [1, .01], kp_y: [1, .01],
+        ki_x: [1, .001], ki_y: [1, .001],
+        kd_x: [1, .0005], kd_y: [1, .0005],
+        kf_x: [2, .1], kf_y: [2, .1],
+        threshold: [1, .05], dynamic_threshold: [1, .05], nms_threshold: [1, .05],
+        priority: [10, 1], smoothing: [1, .05], curvature: [1, .05],
+        active_percent: [1, .05], default_percent: [1, .05], zone_filter: [1, .05],
+        aiming_delay: [1, .01], firing_delay: [1, .01], firing_interval: [1, .01]
+    }[key];
+    if (fixed) return {min: 0, max: fixed[0], step: fixed[1], fixed: true};
     const integer = /^(class|class_id|priority|.*frames|nms_topk|port|monitor_port|imgsz)$/.test(key);
     let min = 0,
         max = 1,
@@ -774,6 +785,11 @@ function field(key, value, onChange, opts = {}) {
         number.type = 'number';
         number.step = /^(class|class_id|priority|.*frames|nms_topk|port|monitor_port|imgsz)$/.test(key) ? 1 : 'any';
         number.required = true;
+        if (bounds.fixed) {
+            number.min = bounds.min;
+            number.max = bounds.max;
+            number.step = bounds.step;
+        }
         if (key.startsWith('weight_')) number.min = 1;
         range.min = bounds.min;
         range.max = bounds.max;
@@ -798,8 +814,10 @@ function field(key, value, onChange, opts = {}) {
                 return;
             }
             if (number.value === '' || !Number.isFinite(number.valueAsNumber)) return;
-            range.min = Math.min(Number(range.min), number.valueAsNumber);
-            range.max = Math.max(Number(range.max), number.valueAsNumber);
+            if (!bounds.fixed) {
+                range.min = Math.min(Number(range.min), number.valueAsNumber);
+                range.max = Math.max(Number(range.max), number.valueAsNumber);
+            }
             range.value = number.value;
             onChange(number.valueAsNumber)
         };
@@ -1321,7 +1339,7 @@ function arrayField(key, value, onChange, opts = {}) {
                     const toggle = node('input', 'switch');
                     toggle.type = 'checkbox';
                     toggle.checked = Object.hasOwn(item, 'dynamic_threshold');
-                    toggle.setAttribute('aria-label', `类别 ${item.class_id} 动态阈值开关`);
+                    toggle.setAttribute('aria-label', `类别 ${item.class_id} 动态置信度阈值开关`);
                     let remembered = item.dynamic_threshold ?? item.threshold;
                     const sync = () => {
                         dynamic.querySelectorAll('.field-control input').forEach(input => input.disabled = !toggle.checked);
