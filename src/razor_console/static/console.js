@@ -577,7 +577,7 @@ function keysControl(value, onChange, single = false) {
                 if (menu.matches(':popover-open')) { menu.hidePopover(); return; }
                 const rect = special.getBoundingClientRect();
                 const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-                const inset = 0.5 * rem, gap = 0.375 * rem;
+                const inset = 0.5 * rem, gap = 0.25 * rem;
                 menu.style.setProperty('--key-menu-row-height', `${rect.height}px`);
                 menu.showPopover();
                 const {width, height} = menu.getBoundingClientRect();
@@ -1154,14 +1154,16 @@ function arrayField(key, value, onChange, opts = {}) {
                 head.append(menu);
                 menu.showPopover();
                 const rect = add.getBoundingClientRect();
-                const width = Math.min(200, innerWidth - 16);
+                const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+                const inset = 0.5 * rem, gap = 0.25 * rem, limit = 16 * rem;
+                const width = Math.min(12 * rem, innerWidth - 2 * inset);
                 menu.style.width = `${width}px`;
-                menu.style.left = `${Math.max(8, Math.min(rect.right - width, innerWidth - width - 8))}px`;
-                const below = innerHeight - rect.bottom - 12;
-                const above = rect.top - 12;
-                const height = Math.min(260, Math.max(below, above));
+                menu.style.left = `${Math.max(inset, Math.min(rect.right - width, innerWidth - width - inset))}px`;
+                const below = innerHeight - rect.bottom - inset - gap;
+                const above = rect.top - inset - gap;
+                const height = Math.min(limit, Math.max(below, above));
                 menu.style.maxHeight = `${height}px`;
-                menu.style.top = `${below >= Math.min(260, menu.scrollHeight) ? rect.bottom + 4 : Math.max(8, rect.top - Math.min(height, menu.scrollHeight) - 4)}px`;
+                menu.style.top = `${below >= Math.min(limit, menu.scrollHeight) ? rect.bottom + gap : Math.max(inset, rect.top - Math.min(height, menu.scrollHeight) - gap)}px`;
                 choices[0]?.focus({preventScroll: true});
                 return;
             } else if (key === 'conf_thresholds') {
@@ -2433,13 +2435,15 @@ function openSelectMenu(select) {
     });
     (select.closest('dialog') || document.body).append(menu);
     const rect = select.getBoundingClientRect();
-    const width = Math.min(Math.max(rect.width, 160), innerWidth - 16);
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const inset = 0.5 * rem, gap = 0.25 * rem;
+    const width = Math.min(Math.max(rect.width, 10 * rem), innerWidth - 2 * inset);
     menu.style.width = `${width}px`;
-    menu.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - width - 8))}px`;
-    menu.style.maxHeight = `${Math.max(40, Math.min(280, Math.max(innerHeight - rect.bottom - 12, rect.top - 12)))}px`;
+    menu.style.left = `${Math.max(inset, Math.min(rect.left, innerWidth - width - inset))}px`;
+    menu.style.maxHeight = `${Math.max(2.5 * rem, Math.min(18 * rem, Math.max(innerHeight - rect.bottom - inset - gap, rect.top - inset - gap)))}px`;
     menu.showPopover();
     const height = menu.getBoundingClientRect().height;
-    menu.style.top = `${rect.bottom + height + 12 <= innerHeight ? rect.bottom + 4 : Math.max(8, rect.top - height - 4)}px`;
+    menu.style.top = `${rect.bottom + height + inset + gap <= innerHeight ? rect.bottom + gap : Math.max(inset, rect.top - height - gap)}px`;
     (enabled.find(button => button.getAttribute('aria-selected') === 'true') || enabled[0])?.focus({preventScroll: true});
 }
 let pressedSelect = null;
@@ -2542,8 +2546,9 @@ function updateUiScale() {
     cancelAnimationFrame(uiScaleFrame);
     uiScaleFrame = requestAnimationFrame(() => {
         const desktop = window.innerWidth >= 801;
+        const portrait = window.innerHeight >= window.innerWidth;
         const scale = desktop
-            ? Math.min(1, Math.max(.85, Math.min(window.innerWidth / 1440, window.innerHeight / 900)))
+            ? Math.min(1, Math.max(.85, portrait ? window.innerWidth / 1080 : Math.min(window.innerWidth / 1440, window.innerHeight / 900)))
             : 1;
         document.documentElement.style.setProperty('--ui-scale', String(Math.round(scale * 1000) / 1000));
     });
