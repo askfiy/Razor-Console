@@ -711,7 +711,7 @@ const explanations = {
     axis_mask_x: '屏蔽手动输入的 X 轴移动。', axis_mask_y: '屏蔽手动输入的 Y 轴移动。',
     weight_position: '滤波或预测中的位置权重。', weight_velocity: '滤波或预测中的速度权重。',
     x_scale: 'X 轴输出的缩放倍数。', y_scale: 'Y 轴输出的缩放倍数。', search_ratio: '搜索区域相对画面的比例。',
-    filter_classes: '需要过滤的模型类别编号。', class_filter: '仅保存所选类别；未配置或空列表均不保存目标类别（负样本采集另计）。全部类别会添加当前配置中的所有类别。',
+    filter_classes: '需要过滤的模型类别编号。', class_filter: '普通模式仅保存所选类别。Lost 模式下，丢失前最后一个未丢失的 best 类别在列表内才保存；空列表保持仅采集无原始检测目标帧的行为。全部类别会添加当前配置中的所有类别。',
     output_dir: '采集数据的输出目录。', only_lost_mode: '仅在目标丢失时采集数据。',
     host: '目标设备的主机名或 IP 地址。', port: '连接设备使用的端口。', monitor_port: '接收设备状态的监听端口。', com_port: '连接设备使用的串口名称。', key: '连接设备所需的密钥。'
 };
