@@ -341,13 +341,19 @@ def create_app(console_settings: ConsoleSettings | None = None) -> FastAPI:
 
     @app.get("/api/frame", tags=["frame"])
     async def latest_frame() -> Response:
+        headers = {
+            "Cache-Control": "no-store",
+            "X-Runtime-Running": str(runtime_process.running).lower(),
+        }
+        if headers["X-Runtime-Running"] == "false":
+            return Response(status_code=204, headers=headers)
         frame = bridge_reader.read_frame()
         if frame is None:
-            return Response(status_code=204)
+            return Response(status_code=204, headers=headers)
         return Response(
             content=frame,
             media_type="image/jpeg",
-            headers={"Cache-Control": "no-store"},
+            headers=headers,
         )
 
     @app.get("/api/bridge/events", tags=["bridge"])

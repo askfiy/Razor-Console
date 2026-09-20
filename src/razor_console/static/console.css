@@ -541,7 +541,7 @@ h2 {
     height: 100%;
     max-height: 22.1875rem;
     object-fit: contain;
-    background: #0c0e0d
+    background: transparent
 }
 
 #frame-empty {
@@ -1827,7 +1827,7 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
     .aim-part-rule > .array-row-head { flex-shrink: 0; }
 }
 
-/* Give spare viewport height to cards while titles and settings keep their rhythm. */
+/* Compact equal-height cards leave the remaining viewport space for the work panels. */
 @media (min-width: 801px) {
     :root {
         --topbar-height: clamp(41px, calc(3.75rem - 10px), 50px);
@@ -1837,7 +1837,7 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
         --section-meta-gap: 0.625rem;
         --card-gap: 0.625rem;
         --card-pad-x: 1rem;
-        --card-pad-y: 0.875rem;
+        --card-pad-y: 0.625rem;
         --preview-inset: 6%;
         --toolbar-height: 2.5rem;
         --toolbar-control-height: 1.75rem;
@@ -1853,11 +1853,11 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
     .topbar { height: var(--topbar-height); padding: 0 1.5rem; }
     main {
         --fixed-workspace-height: calc(3 * var(--section-row-height) + var(--toolbar-height) + var(--binding-panel-height) + 6 * var(--workspace-gap) + 2 * var(--card-gap) + 0.75rem);
-        --card-row-height: calc((100% - var(--fixed-workspace-height)) / 3);
+        --card-row-height: min(5.5rem, calc((100% - var(--fixed-workspace-height)) / 3));
         width: 100%; height: 100%; min-height: 0; max-width: 105rem; margin: 0 auto;
         padding: var(--workspace-gap) 1.5rem 0.75rem; display: grid; gap: var(--workspace-gap);
         grid-template-areas: "heading" "profile" "core-title" "core" "middle" "plugin-title" "plugins" "footer";
-        grid-template-rows: var(--section-row-height) var(--toolbar-height) var(--section-row-height) calc(var(--card-row-height) + var(--card-gap) - var(--workspace-gap)) var(--binding-panel-height) var(--section-row-height) calc(2 * var(--card-row-height) + var(--card-gap)) 0.75rem;
+        grid-template-rows: var(--section-row-height) var(--toolbar-height) var(--section-row-height) calc(var(--card-row-height) + var(--card-gap) - var(--workspace-gap)) minmax(var(--binding-panel-height), 1fr) var(--section-row-height) calc(2 * var(--card-row-height) + var(--card-gap)) 0.75rem;
     }
     .page-heading { grid-area: heading; min-height: 0; margin: 0; }
     .page-heading .eyebrow { display: none; }
@@ -1874,22 +1874,21 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
     .section-heading h2 span { font-size: var(--section-meta-size); margin-left: var(--section-meta-gap); letter-spacing: 0.09375rem; }
     .core-grid { grid-area: core; min-height: 0; gap: var(--card-gap); margin-bottom: calc(var(--card-gap) - var(--workspace-gap)); }
     .core-card { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 0; padding: var(--card-pad-y) var(--card-pad-x); }
-    .core-top { margin-bottom: 0.5rem; }
+    .core-top { margin-bottom: 0.375rem; }
     .module-icon { font-size: 1.125rem; line-height: 1; }
     .core-card strong { font-size: 0.875rem; }
     .core-card small { max-width: 100%; min-height: 1rem; margin-top: 0.25rem; font-size: 0.75rem; line-height: 1rem; }
     .middle-grid { grid-area: middle; min-height: 0; margin: 0; gap: 0.625rem; align-items: stretch; }
     .middle-grid > .panel { min-height: 0; height: 100%; overflow: hidden; }
     .input-panel { display: flex; flex-direction: column; }
-    .input-panel > .panel-head, .output-tabs { flex: none; height: var(--panel-title-height); align-items: center; }
+    .input-panel > .panel-head, .output-tabs { flex: none; height: max(var(--panel-title-height), 16.6667%); align-items: center; }
     .input-panel .panel-head { padding: 0 0.75rem; }
     .input-panel .panel-head .eyebrow { display: none; }
     .input-panel .panel-head h2,
     #output-logs .panel-head h2,
     #output-preview .panel-head h2 { font-size: 0.875rem; }
-    #player-fields { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0 0.75rem; overflow: hidden; }
-    #player-fields > .field, #player-fields > .label-bindings { flex: none; }
-    #player-fields .field { height: var(--settings-row-height); min-height: var(--settings-row-height); padding: 0; gap: 0.5rem; }
+    #player-fields { flex: 1; display: grid; grid-template-rows: repeat(6, minmax(0, 1fr)); min-height: 0; padding: 0 0.75rem; overflow: hidden; }
+    #player-fields .field { min-height: var(--settings-row-height); padding: 0; gap: 0.5rem; }
     #player-fields .field-label { font-size: 0.75rem; }
     #player-fields .field-label small { display: none; }
     #player-fields .field-control > select { height: 1.75rem; padding: 0.1875rem 0.5rem; }
@@ -1898,7 +1897,7 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
     #player-fields .keys > button,
     #player-fields .keys .key-add-actions > button { height: 1.5rem; padding: 0 0.375rem; }
     #player-fields .label-bindings { display: flex; flex-direction: column; padding-top: 0; }
-    #player-fields .label-bindings > .array-head { min-height: var(--settings-row-height); }
+    #player-fields .label-bindings > .array-head { flex: 1; min-height: var(--settings-row-height); }
     .preview-panel { min-height: 0; }
     .profile-actions, .output-tabs,
     #output-logs .log-toolbar, #output-logs .log-toolbar > div,
@@ -1928,7 +1927,7 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
     .plugin-grid { grid-area: plugins; min-height: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--card-gap); }
     .plugin-card { display: flex; min-height: 0; padding: min(0.75rem, var(--card-pad-y)) var(--card-pad-x); flex-direction: column; }
     .plugin-card h3 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.875rem; }
-    .plugin-card p { flex: 0 0 auto; margin: 0.375rem 0 0.625rem; min-height: 1.4em; font-size: 0.75rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .plugin-card p { flex: 0 0 auto; margin: 0.25rem 0 0.375rem; min-height: 1.4em; font-size: 0.75rem; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .plugin-bottom { margin-top: auto; font-size: 0.6875rem; }
     .plugin-bottom button { font-size: 0.6875rem; padding: 0.125rem 0 0.125rem 0.375rem; }
     .plugin-card .switch { width: 1.75rem; height: 1rem; }

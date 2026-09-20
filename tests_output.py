@@ -2,7 +2,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -12,6 +12,36 @@ from razor_console.settings import ConsoleSettings
 
 
 class OutputTests(unittest.TestCase):
+    def test_frame_endpoint_does_not_replay_shared_frame_after_runtime_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "config").mkdir()
+            (root / "main.py").write_text("")
+            (root / "boot.toml").write_text('[system]\nloader="game"\n')
+            with (
+                patch.object(RuntimeProcess, "running", new_callable=PropertyMock) as running,
+                patch.object(SharedBridgeReader, "read_frame", return_value=b"jpeg") as read_frame,
+                TestClient(create_app(ConsoleSettings(runtime_directory=root))) as client,
+            ):
+                running.return_value = True
+                response = client.get("/api/frame")
+                self.assertEqual(response.content, b"jpeg")
+                self.assertEqual(response.headers["x-runtime-running"], "true")
+                self.assertEqual(response.headers["cache-control"], "no-store")
+                read_frame.reset_mock()
+                running.return_value = False
+                response = client.get("/api/frame")
+                self.assertEqual(response.status_code, 204)
+                self.assertEqual(response.content, b"")
+                self.assertEqual(response.headers["x-runtime-running"], "false")
+                self.assertEqual(response.headers["cache-control"], "no-store")
+                read_frame.assert_not_called()
+                running.return_value = True
+                read_frame.return_value = None
+                response = client.get("/api/frame")
+                self.assertEqual(response.status_code, 204)
+                self.assertEqual(response.headers["x-runtime-running"], "true")
+
     def test_reload_discards_old_logs_but_preserves_new_cycle(self):
         process = RuntimeProcess(Path('.'))
         process._append_log(20, 'previous session')

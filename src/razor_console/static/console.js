@@ -5,6 +5,7 @@ const state = {
     name: '',
     games: [],
     running: false,
+    runtimePending: null,
     bound: false,
     busy: false,
     modal: null,
@@ -2122,23 +2123,36 @@ $('#clear-logs').onclick = () => task(async () => {
     state.logs = [];
     renderLogs()
 });
+let runtimeStatusRevision = 0;
+function applyRuntimeStatus(result) {
+    const running = !!result.running;
+    if (state.running !== running) {
+        runtimeStatusRevision++;
+        clearPreviewFrame();
+    }
+    state.running = running;
+    if ('bound' in result) state.bound = !!result.bound;
+    $('#runtime-state').textContent = !state.bound ? '未绑定' : state.running ? 'Runtime 运行中' : '未启动';
+    $('#bind-runtime').hidden = state.bound;
+    $('#run').hidden = !state.bound;
+    $('#unbind-runtime').hidden = !state.bound;
+    $('#unbind-runtime').disabled = state.running || state.busy;
+    document.body.classList.toggle('runtime-unbound', !state.bound);
+    $('#runtime-state').classList.toggle('on', state.running);
+    $('#run').textContent = state.running ? '停止 Runtime' : '启动 Runtime';
+    $('#run').disabled = !!state.runtimePending;
+    renderPreview();
+}
 async function pollStatus() {
+    const revision = runtimeStatusRevision;
     try {
         const result = await api('/api/runtime');
-        state.running = !!result.running;
-        state.bound = !!result.bound;
-        $('#runtime-state').textContent = !state.bound ? '未绑定' : state.running ? 'Runtime 运行中' : '未启动';
-        $('#bind-runtime').hidden = state.bound;
-        $('#run').hidden = !state.bound;
-        $('#unbind-runtime').hidden = !state.bound;
-        $('#unbind-runtime').disabled = state.running || state.busy;
-        document.body.classList.toggle('runtime-unbound', !state.bound);
-        $('#runtime-state').classList.toggle('on', state.running);
-        $('#run').textContent = state.running ? '停止 Runtime' : '启动 Runtime';
-        $('#run').disabled = false
+        if (revision === runtimeStatusRevision && !state.runtimePending) applyRuntimeStatus(result);
     } catch {
-        $('#runtime-state').textContent = 'Console 连接中断';
-        $('#run').disabled = true
+        if (revision === runtimeStatusRevision && !state.runtimePending) {
+            $('#runtime-state').textContent = 'Console 连接中断';
+            $('#run').disabled = true;
+        }
     }
     setTimeout(pollStatus, 1500)
 }
@@ -2147,12 +2161,21 @@ $('#run').onclick = () => task(async () => {
         notify('请先保存或撤销修改，再启动 Runtime');
         return
     }
-    const result = await api(`/api/runtime/${state.running?'stop':'start'}`, {
-        method: 'POST'
-    });
-    state.running = !!result.running;
-    $('#run').textContent = state.running ? '停止 Runtime' : '启动 Runtime';
-    eventLog(state.running ? 'Runtime 已启动' : 'Runtime 已停止')
+    state.runtimePending = state.running ? 'stop' : 'start';
+    runtimeStatusRevision++;
+    clearPreviewFrame();
+    renderPreview();
+    $('#run').disabled = true;
+    try {
+        const result = await api(`/api/runtime/${state.runtimePending}`, {method: 'POST'});
+        applyRuntimeStatus(result);
+        eventLog(state.running ? 'Runtime 已启动' : 'Runtime 已停止');
+    } finally {
+        state.runtimePending = null;
+        runtimeStatusRevision++;
+        $('#run').disabled = false;
+        renderPreview();
+    }
 });
 async function pollLogs() {
     if (!state.bound) { setTimeout(pollLogs, 1500); return; }
@@ -2188,54 +2211,97 @@ async function pollSounds() {
     } catch {}
     setTimeout(pollSounds, 300)
 }
-let lastPreviewFrameAt = 0;
+let lastPreviewFrameAt = null;
+let previewRevision = 0;
+let previewRequest = null;
+function canReceivePreview() {
+    return state.bound && state.running && state.runtimePending !== 'stop' && awaitSavedBridge();
+}
+function clearPreviewFrame() {
+    previewRevision++;
+    previewRequest?.abort();
+    lastPreviewFrameAt = null;
+    state.live = false;
+    if (state.frameUrl) URL.revokeObjectURL(state.frameUrl);
+    state.frameUrl = null;
+    for (const selector of ['#frame', '#large-frame']) {
+        $(selector).hidden = true;
+        $(selector).removeAttribute('src');
+    }
+    $('#frame-meta').textContent = '无画面';
+    $('#original-frame-meta').textContent = '1:1';
+    if ($('#preview-dialog').open) $('#preview-dialog').close();
+}
+function renderPreview() {
+    const enabled = awaitSavedBridge();
+    const running = state.running && state.runtimePending !== 'stop';
+    state.live = canReceivePreview() && lastPreviewFrameAt !== null && performance.now() - lastPreviewFrameAt < 2000;
+    $('#frame').hidden = $('#large-frame').hidden = !state.live;
+    $('#frame-empty').hidden = state.live;
+    const waiting = running ? '等待 Runtime 画面' : '等待 Runtime 启动';
+    $('#preview-status').textContent = state.live ? 'LIVE' : enabled ? waiting : '输出关闭';
+    $('#expand-preview').disabled = !state.live;
+    for (const selector of ['#toggle-preview', '#expanded-toggle-preview']) {
+        $(selector).textContent = enabled ? '关闭预览' : '开启预览';
+        $(selector).disabled = state.busy || !state.bound;
+    }
+    $('#expanded-preview-status').textContent = state.live ? 'LIVE' : enabled ? waiting : '预览已关闭';
+    $('#frame-empty strong').textContent = enabled ? waiting : '画面输出未开启';
+    $('#frame-empty p').textContent = !enabled ? '在渲染设置中启用 Console 画面输出' : running ? '收到画面后将自动显示' : 'Runtime 启动后将自动接收画面';
+    $('#preview-settings').hidden = enabled;
+}
 async function pollFrame() {
-    let fps = Number($('#preview-fps').value) || 60;
-    const savedBoot = state.boot ? awaitSavedBridge() : false;
+    const fps = Number($('#preview-fps').value) || 60;
+    const revision = previewRevision;
     try {
-        if (savedBoot) {
+        if (canReceivePreview()) {
+            previewRequest = new AbortController();
             const r = await fetch('/api/frame', {
-                cache: 'no-store', signal: AbortSignal.timeout(3000)
+                cache: 'no-store', signal: AbortSignal.any([previewRequest.signal, AbortSignal.timeout(3000)])
             });
+            if (revision !== previewRevision || !canReceivePreview()) return;
+            if (r.headers.get('x-runtime-running') === 'false') {
+                applyRuntimeStatus({running: false});
+                return;
+            }
             if (r.ok && r.status !== 204 && r.headers.get('content-type')?.startsWith('image/')) {
                 const blob = await r.blob();
+                if (revision !== previewRevision || !canReceivePreview()) return;
                 const nextUrl = URL.createObjectURL(blob);
                 const decoded = new Image();
                 decoded.src = nextUrl;
                 try { await decoded.decode(); } catch (error) { URL.revokeObjectURL(nextUrl); throw error; }
+                if (revision !== previewRevision || !canReceivePreview()) {
+                    URL.revokeObjectURL(nextUrl);
+                    return;
+                }
                 const old = state.frameUrl;
                 state.frameUrl = nextUrl;
                 $('#frame').src = $('#large-frame').src = state.frameUrl;
                 if (old) URL.revokeObjectURL(old);
                 lastPreviewFrameAt = performance.now();
             }
-        } else lastPreviewFrameAt = 0;
+        } else if (state.frameUrl || lastPreviewFrameAt !== null) clearPreviewFrame();
     } catch {
         // Keep the last decoded frame through brief producer/network gaps.
     } finally {
-        state.live = !!savedBoot && !!lastPreviewFrameAt && performance.now() - lastPreviewFrameAt < 2000;
-        $('#frame').hidden = !state.live;
-        $('#frame-empty').hidden = state.live;
-        $('#preview-status').textContent = state.live ? 'LIVE' : savedBoot ? '等待画面' : '输出关闭';
-        $('#expand-preview').disabled = !state.live;
-        $('#toggle-preview').textContent = savedBoot ? '停止预览' : '开启预览';
-        $('#toggle-preview').disabled = state.busy || !state.bound;
-        $('#expanded-toggle-preview').textContent = savedBoot ? '停止预览' : '开启预览';
-        $('#expanded-toggle-preview').disabled = state.busy || !state.bound;
-        $('#expanded-preview-status').textContent = state.live ? 'LIVE' : savedBoot ? '等待画面' : '预览已停止';
-        $('#frame-empty strong').textContent = savedBoot ? '等待 Runtime 画面' : '画面输出未开启'
+        previewRequest = null;
+        renderPreview();
+        setTimeout(pollFrame, state.live ? 1000 / fps : 800);
     }
-    setTimeout(pollFrame, state.live ? 1000 / fps : 800)
 }
 
 function awaitSavedBridge() {
-    const entry = state.boot.savedSections?.find(s => s.name === 'bridge' && s.enabled);
+    const entry = state.boot?.savedSections?.find(s => s.name === 'bridge' && s.enabled);
     return !!entry?.data.open_preview;
 }
 $('#toggle-preview').onclick = () => task(async () => {
     await syncSwitch('boot', [{name: 'bridge', enabled: true, data: {open_preview: !awaitSavedBridge()}}]);
+    if (!awaitSavedBridge()) clearPreviewFrame();
+    renderPreview();
 });
 $('#frame').onload = () => {
+    if (!state.frameUrl || !canReceivePreview()) return;
     const size = `${$('#frame').naturalWidth} × ${$('#frame').naturalHeight}`;
     $('#frame-meta').textContent = size;
     $('#original-frame-meta').textContent = size;
