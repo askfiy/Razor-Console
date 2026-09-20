@@ -3,7 +3,9 @@ import json
 from pathlib import Path
 from threading import Lock
 
-ALIAS_FILE = Path(__file__).resolve().parents[2] / ".console-aliases.json"
+from .storage import data_directory
+
+ALIAS_FILE = data_directory() / ".console-aliases.json"
 _lock = Lock()
 
 

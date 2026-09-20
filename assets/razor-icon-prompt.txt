@@ -1,0 +1,9 @@
+Generated with the built-in image_gen tool.
+
+Use case: logo-brand.
+Asset type: production Windows desktop application icon for Razor Console, square 1024 x 1024 PNG.
+Primary request: Create one polished, minimal application icon that remains instantly legible at 16, 24, 32 and 48 pixels.
+Subject: an original bold angular geometric uppercase R beside a crisp forward slash, reading exactly "R/". The R is the dominant mark, with a sharp diagonal leg and a generous open counter; the slash is a secondary accent. Both are thick, simple, beautifully balanced, optically centered as a single compact monogram.
+Color palette: vivid acid green #44D62C for the monogram; near-black #101010 for a rounded-square tile. True transparent background outside the tile. Tile fills about 94% of the canvas. Monogram occupies about 70% of tile width and 66% of tile height.
+Style: precise flat graphic design, clean solid color fills, hard crisp edges, premium restrained desktop software identity. No bevels, no gradients, no texture, no shadows, no glow, no shiny 3D, no hairline detail.
+Constraints: only one icon, front-facing straight-on, no mockup, no alternative concepts, no labels or typography outside the R/ monogram, no word "Razor", no existing snake or animal logo, no watermark. Large simple negative spaces and consistent visual stroke weight. Actual transparency in the outer corners, not a checkerboard illustration.

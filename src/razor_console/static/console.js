@@ -437,7 +437,7 @@ function renderCore() {
 
         ['inferencer', '◇', 'game', data('game', 'inferencer').engine || '选择模型与引擎'],
         ['selector', '⌖', 'game', `${(data('game','selector').class_priority||[]).length} 类目标`],
-        ['kalman', '≋', 'game', ''],
+        ['kalman', '≋', 'game', 'kalman filter/predict'],
         ['controller', '⌁', 'game', `X ${data('game','controller').kp_x??'—'} / Y ${data('game','controller').kp_y??'—'}`]
     ];
     $('#core-grid').innerHTML = cards.map(([key, icon, scope, summary]) => `<button class="core-card" data-core="${key}" data-scope="${scope}"><div class="core-top"><span class="module-icon">${icon}</span></div><strong>${labels[key]}</strong><small title="${esc(summary)}">${esc(summary)}</small></button>`).join('')
@@ -482,7 +482,6 @@ function labelBindingSections() {
 function renderLabelBindings() {
     const standalone = section('game', 'player.labels_button');
     const inline = data('game', 'player').labels_button;
-    const bindings = standalone?.data || inline;
     const group = node('section', 'label-bindings');
     const heading = node('div', 'array-head');
     heading.append(node('h3', '', '标签组按键'));
@@ -491,36 +490,6 @@ function renderLabelBindings() {
     edit.onclick = () => openDrawer('game', inline && !standalone ? ['player'] : ['player.labels_button'], '标签组按键');
     heading.append(edit);
     group.append(heading);
-    const update = values => task(() => patch('game', standalone || !inline ? [{
-        name: 'player.labels_button',
-        data: values
-    }] : [{
-        name: 'player',
-        data: {
-            labels_button: {
-                ...inline,
-                ...values
-            }
-        }
-    }]));
-    if (bindings) {
-        const addRow = (title, token, change) => {
-            const row = node('div', 'field');
-            row.append(node('span', 'field-label', title));
-            row.append(keysControl(token ? [token] : [], keys => change(keys[0] || ''), true));
-            group.append(row);
-        };
-        addRow('选择全部标签组', bindings.default, value => update({
-            default: value
-        }));
-        (bindings.options || []).forEach((item, index) => addRow(item.label || `标签 ${index+1}`, item.button, value => {
-            const options = clone(bindings.options);
-            options[index].button = value;
-            return update({
-                options
-            });
-        }));
-    } else group.append(node('p', 'muted', '尚未配置标签组按键，可在设置中添加。'));
     $('#player-fields').append(group);
 }
 
@@ -606,10 +575,15 @@ function keysControl(value, onChange, single = false) {
             special.onclick = () => {
                 if (menu.matches(':popover-open')) { menu.hidePopover(); return; }
                 const rect = special.getBoundingClientRect();
-                menu.style.left = `${Math.max(8, Math.min(rect.right - 210, innerWidth - 218))}px`;
-                menu.style.top = `${rect.bottom + 6}px`;
+                const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+                const inset = 0.5 * rem, gap = 0.375 * rem;
+                menu.style.setProperty('--key-menu-row-height', `${rect.height}px`);
                 menu.showPopover();
-                if (menu.getBoundingClientRect().bottom > innerHeight - 8) menu.style.top = `${Math.max(8, rect.top - menu.offsetHeight - 6)}px`;
+                const {width, height} = menu.getBoundingClientRect();
+                menu.style.left = `${Math.max(inset, Math.min(rect.right - width, innerWidth - width - inset))}px`;
+                const top = rect.bottom + gap + height <= innerHeight - inset
+                    ? rect.bottom + gap : rect.top - height - gap;
+                menu.style.top = `${Math.max(inset, Math.min(top, innerHeight - height - inset))}px`;
             };
             actions.append(special, menu);
         }
@@ -2454,3 +2428,59 @@ document.addEventListener('scroll', event => {
 }, {capture: true, passive: true});
 
 // Auto popovers dismiss on outside clicks; pointer exit alone keeps them open.
+
+function enhanceNumberInput(input) {
+    if (!(input instanceof HTMLInputElement) || input.type !== 'number' || input.closest('.number-input-wrap')) return;
+    const wrap = node('span', 'number-input-wrap');
+    input.before(wrap);
+    wrap.append(input);
+    const controls = node('span', 'number-stepper');
+    for (const [direction, glyph, label] of [[1, '▲', '增加'], [-1, '▼', '减少']]) {
+        const button = node('button', '', glyph);
+        button.type = 'button';
+        button.tabIndex = -1;
+        button.setAttribute('aria-label', `${label}${input.getAttribute('aria-label') || '数值'}`);
+        button.onclick = () => {
+            try {
+                direction > 0 ? input.stepUp() : input.stepDown();
+            } catch {
+                const current = Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : 0;
+                input.value = String(current + direction * .01);
+            }
+            input.dispatchEvent(new Event('input', {bubbles: true}));
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+            input.focus({preventScroll: true});
+        };
+        controls.append(button);
+    }
+    wrap.append(controls);
+}
+
+function enhanceNumberInputs(root = document) {
+    if (root instanceof HTMLInputElement) enhanceNumberInput(root);
+    root.querySelectorAll?.('input[type=number]').forEach(enhanceNumberInput);
+}
+
+enhanceNumberInputs();
+new MutationObserver(records => {
+    for (const record of records) for (const added of record.addedNodes) {
+        if (added instanceof Element) enhanceNumberInputs(added);
+    }
+}).observe(document.body, {childList: true, subtree: true});
+
+// Scale rem-based content without scaling the viewport coordinate system used
+// by fixed drawers, modal dialogs and anchored popovers.
+// The base size is the large-window ceiling; smaller windows compact the UI.
+let uiScaleFrame = 0;
+function updateUiScale() {
+    cancelAnimationFrame(uiScaleFrame);
+    uiScaleFrame = requestAnimationFrame(() => {
+        const desktop = window.innerWidth >= 801;
+        const scale = desktop
+            ? Math.min(1, Math.max(.85, Math.min(window.innerWidth / 1440, window.innerHeight / 900)))
+            : 1;
+        document.documentElement.style.setProperty('--ui-scale', String(Math.round(scale * 1000) / 1000));
+    });
+}
+updateUiScale();
+window.addEventListener('resize', updateUiScale, {passive: true});

@@ -9,6 +9,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .storage import data_directory
+
 
 class ConsoleSettings(BaseSettings):
     """Settings required to locate and serve a Razor Runtime installation."""
@@ -25,7 +27,7 @@ class ConsoleSettings(BaseSettings):
     runtime_bound: bool = True
 
 
-LOCAL_SETTINGS = Path(__file__).resolve().parents[2] / ".console-settings.json"
+LOCAL_SETTINGS = data_directory() / ".console-settings.json"
 
 
 def load_settings() -> ConsoleSettings:

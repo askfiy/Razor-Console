@@ -111,6 +111,21 @@ uv run main.py
 
 Open `http://127.0.0.1:8765/`.
 
+## Windows desktop application
+
+Build a native desktop window backed by the same Console service:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-desktop.ps1
+```
+
+Run `dist\RazorConsole\RazorConsole.exe`. The distributable is the complete
+`dist\RazorConsole` directory, not only the executable. A target PC does not
+need Python or uv. It needs Windows 10/11, Microsoft Edge WebView2 Runtime, and
+a separately prepared Razor Runtime directory. On first launch, bind that
+Runtime directory in the Console UI. Desktop settings and aliases are stored in
+`%LOCALAPPDATA%\RazorConsole`.
+
 ## Runtime Bridge
 
 Razor Runtime must enable its core Bridge in `boot.toml`:
