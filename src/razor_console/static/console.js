@@ -614,7 +614,7 @@ function numberBounds(key, value) {
         active_percent: [1, .05], default_percent: [1, .05], zone_filter: [1, .05],
         aiming_delay: [1, .01], firing_delay: [1, .01], firing_interval: [1, .01]
     }[key];
-    if (fixed) return {min: 0, max: fixed[0], step: fixed[1], fixed: true};
+    if (fixed) return {min: 0, max: fixed[0], step: fixed[1], fixed: true, freePrecision: /^k[pidf]_[xy]$/.test(key)};
     const integer = /^(class|class_id|priority|.*frames|nms_topk|port|monitor_port|imgsz)$/.test(key);
     let min = 0,
         max = 1,
@@ -640,11 +640,56 @@ function numberBounds(key, value) {
         max = Math.max(10, value * 2);
         step = Number.isInteger(value) ? 1 : .01
     }
+    const decimalStep = {
+        lost_save_interval: .05, active_save_interval: .05, inactive_save_interval: .05,
+        scale_lt_filter: .05, active_confidence_threshold: .1, inactive_confidence_threshold: .1
+    }[key];
     return {
         min: Math.min(min, value),
         max: Math.max(max, value),
-        step
+        step: decimalStep ?? step,
+        precision: decimalStep ? 2 : undefined
     }
+}
+
+// A step controls arrow increments, not which manually entered decimals are valid.
+function configureDecimalInput(input, step, precision = 2) {
+    input.step = 'any';
+    input.dataset.numericStep = String(step);
+    input.dataset.precision = String(precision);
+    if (Number.isFinite(input.valueAsNumber)) input.value = formatDecimal(input.valueAsNumber, precision);
+    input.addEventListener('change', () => {
+        if (!Number.isFinite(input.valueAsNumber)) return;
+        input.value = formatDecimal(input.valueAsNumber, precision);
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+    });
+}
+
+function formatDecimal(value, precision) {
+    const rounded = Number(value.toFixed(precision));
+    return rounded.toFixed(precision);
+}
+
+function steppedDecimal(current, step, direction, precision, min = -Infinity, max = Infinity) {
+    const next = Number((current + direction * step).toFixed(precision));
+    return Math.max(min, Math.min(max, next));
+}
+
+function stepNumberInput(input, direction) {
+    if (input.disabled || input.readOnly) return;
+    if (input.dataset.numericStep || input.step === 'any') {
+        const current = Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : 0;
+        const step = Number(input.dataset.numericStep || .01);
+        const precision = Number(input.dataset.precision ?? 12);
+        const next = steppedDecimal(current, step, direction, precision,
+            input.min === '' ? -Infinity : Number(input.min),
+            input.max === '' ? Infinity : Number(input.max));
+        input.value = input.dataset.precision === undefined ? String(next) : formatDecimal(next, precision);
+    } else {
+        direction > 0 ? input.stepUp() : input.stepDown();
+    }
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+    input.dispatchEvent(new Event('change', {bubbles: true}));
 }
 
 const explanations = {
@@ -765,11 +810,18 @@ function field(key, value, onChange, opts = {}) {
             number.max = bounds.max;
             number.step = bounds.step;
         }
+        if (bounds.freePrecision) {
+            number.step = 'any';
+            number.dataset.numericStep = String(bounds.step);
+        }
         if (key.startsWith('weight_')) number.min = 1;
         range.min = bounds.min;
         range.max = bounds.max;
         range.step = bounds.step;
         range.value = number.value = value;
+        if (bounds.precision !== undefined) {
+            configureDecimalInput(number, bounds.step, bounds.precision);
+        }
         if (key === 'imgsz') {
             number.classList.add('render-size-input');
             number.placeholder = '自动';
@@ -780,7 +832,7 @@ function field(key, value, onChange, opts = {}) {
         number.id = id;
         range.setAttribute('aria-label', `${labels[key]||key} 滑块`);
         range.oninput = () => {
-            number.value = range.value;
+            number.value = bounds.precision === undefined ? range.value : formatDecimal(Number(range.value), bounds.precision);
             onChange(Number(range.value))
         };
         number.oninput = () => {
@@ -1236,7 +1288,7 @@ function arrayField(key, value, onChange, opts = {}) {
                         const values = random ? item.rand[axis] : [(item.norm || [.5, .5])[axis]];
                         values.forEach((value, bound) => {
                             const cell = node('label', 'aim-part-value');
-                            const caption = node('span', 'muted', random ? (bound ? '最大值' : '最小值') : '偏移');
+                            const caption = node('span', 'muted aim-part-caption', random ? (bound ? '最大值' : '最小值') : '偏移');
                             attachHelp(caption, random ? 'rand' : 'norm');
                             if (random) cell.append(caption);
                             else attachHelp(cell, 'norm');
@@ -1245,6 +1297,7 @@ function arrayField(key, value, onChange, opts = {}) {
                             input.step = 'any';
                             input.required = true;
                             input.value = value;
+                            configureDecimalInput(input, .05);
                             input.setAttribute('aria-label', `${name} ${random ? (bound ? '最大值' : '最小值') : '偏移'}`);
                             input.oninput = () => {
                                 if (!Number.isFinite(input.valueAsNumber)) return;
@@ -1720,6 +1773,7 @@ function recoilEditor(entry) {
                         input.type = 'number'; input.step = 'any'; input.required = true;
                         if (!axis) input.min = 0;
                         input.value = value;
+                        if (axis) configureDecimalInput(input, .05);
                         input.setAttribute('aria-label', `配置组 ${index + 1} 第 ${rowIndex + 1} 行 ${['时间（秒）', 'X 轴', 'Y 轴'][axis]}`);
                         input.oninput = () => {
                             if (!Number.isFinite(input.valueAsNumber)) return;
@@ -2511,19 +2565,17 @@ function enhanceNumberInput(input) {
         button.tabIndex = -1;
         button.setAttribute('aria-label', `${label}${input.getAttribute('aria-label') || '数值'}`);
         button.onclick = () => {
-            try {
-                direction > 0 ? input.stepUp() : input.stepDown();
-            } catch {
-                const current = Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : 0;
-                input.value = String(current + direction * .01);
-            }
-            input.dispatchEvent(new Event('input', {bubbles: true}));
-            input.dispatchEvent(new Event('change', {bubbles: true}));
+            stepNumberInput(input, direction);
             input.focus({preventScroll: true});
         };
         controls.append(button);
     }
     wrap.append(controls);
+    input.addEventListener('keydown', event => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        stepNumberInput(input, event.key === 'ArrowUp' ? 1 : -1);
+    });
 }
 
 function enhanceNumberInputs(root = document) {

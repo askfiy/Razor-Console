@@ -66,6 +66,24 @@ Select and include-menu options use the standard control height. The extension
 key menu matches its 24px trigger. Popover gaps, insets and width limits scale
 with the root font size, including menus rendered outside the triggering panel.
 
+## Numeric increments
+
+Controller Kp/Ki/Kd/Kf retain their original increments (0.01/0.001/0.0005/0.1)
+on both axes. Manual values such as Kp = 0.075 must remain valid when saved even
+when they are not multiples of the slider step. Do not round controller gains to
+a fixed decimal count: Kd's existing 0.0005 increment needs four decimal places.
+
+Aim Part fixed X/Y and random X/Y bounds, Recoil X/Y, and Data Collector save
+intervals and minimum-size threshold increment by 0.05. Both collector confidence
+thresholds increment by 0.1. These fields display two decimal places and normalize
+manual input on change; their existing valid ranges remain unchanged. Keep manual
+values such as 0.23 valid: an increment adds 0.05 to produce 0.28 rather than snapping
+to a multiple of the step. Mouse arrows and keyboard arrows share this behavior.
+
+Number inputs are wrapped in `.number-input-wrap` spans for their custom arrows.
+Caption styles must target the caption class, never hide all child spans of a
+numeric cell; otherwise the random Aim Part inputs disappear with their wrappers.
+
 ## Layout rules
 
 - Never distribute spare height into form rows or panel title bars. All six

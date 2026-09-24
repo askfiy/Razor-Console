@@ -1880,7 +1880,7 @@ button.quiet:not(:disabled):hover { color: var(--green); background: transparent
 .aim-part-rule .aim-part-axis > .field-label { grid-column: 1 / -1; }
 .aim-part-rule .aim-part-value { gap: var(--space-1); }
 .aim-part-rule .aim-part-axes:not(.random-offset) .aim-part-value { grid-column: 1 / -1; }
-.aim-part-rule .random-offset .aim-part-value > span { display: none; }
+.aim-part-rule .aim-part-caption { font-size: var(--font-meta); line-height: var(--line-meta); }
 .aim-part-rule > .aim-part-focus { width: auto; flex: 0 0 auto; }
 .aim-part-focus .field-control { display: flex; align-items: center; height: var(--control-height); }
 @media (max-width: 600px) {

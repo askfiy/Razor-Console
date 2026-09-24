@@ -9,6 +9,13 @@ from razor_console.services import ConfigStore
 
 
 class FormTests(unittest.TestCase):
+    def test_controller_three_decimal_gains_round_trip(self):
+        gains = {f"{gain}_{axis}": 0.075 for gain in ("kp", "ki", "kd", "kf") for axis in ("x", "y")}
+        original = "[controller]\n" + "".join(f"{key} = 0.1\n" for key in gains)
+        result = transform(original, [{"name": "controller", "data": gains}])
+        self.assertEqual(dict(tomlkit.parse(result["content"])["controller"]), gains)
+        self.assertEqual(result["sections"][0]["data"], gains)
+
     def test_recoil_comment_groups_round_trip(self):
         content = "[component.RecoilComponent]\npattern = [\n # default\n [0.1, 0, 8],\n # k416\n # [0.1, 2, 4],\n]\n"
         pattern = "pattern = [\n # default\n # [0.1, 0, 8],\n # k416\n [0.1, 2, 4],\n]"
