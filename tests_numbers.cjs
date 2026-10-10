@@ -43,7 +43,7 @@ test('controller gains accept off-grid decimals while retaining their original i
     }
 });
 
-test('0.05 arrows round-trip without binary tails, including negative recoil and off-grid values', () => {
+test('0.05 arrows round-trip without binary tails, including negative and off-grid values', () => {
     const input = new Input(.2);
     context.configureDecimalInput(input, .05);
     context.stepNumberInput(input, 1);
@@ -62,6 +62,20 @@ test('0.05 arrows round-trip without binary tails, including negative recoil and
     input.value = '0.23';
     context.stepNumberInput(input, 1);
     assert.equal(input.value, '0.28');
+});
+
+test('recoil unit increments preserve manual decimals and cross zero correctly', () => {
+    const input = new Input(.25);
+    context.configureDecimalInput(input, 1);
+    context.stepNumberInput(input, 1);
+    assert.equal(input.value, '1.25');
+    context.stepNumberInput(input, -1);
+    assert.equal(input.value, '0.25');
+    context.stepNumberInput(input, -1);
+    assert.equal(input.value, '-0.75');
+    input.value = '-4';
+    context.stepNumberInput(input, 1);
+    assert.equal(input.value, '-3.00');
 });
 
 test('manual decimals are normalized on commit and the saved value matches the display', () => {

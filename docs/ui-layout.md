@@ -73,7 +73,8 @@ on both axes. Manual values such as Kp = 0.075 must remain valid when saved even
 when they are not multiples of the slider step. Do not round controller gains to
 a fixed decimal count: Kd's existing 0.0005 increment needs four decimal places.
 
-Aim Part fixed X/Y and random X/Y bounds, Recoil X/Y, and Data Collector save
+Recoil X/Y increment by 1 while retaining two-decimal manual input; its time
+column keeps its existing increment. Aim Part fixed X/Y and random X/Y bounds, and Data Collector save
 intervals and minimum-size threshold increment by 0.05. Both collector confidence
 thresholds increment by 0.1. These fields display two decimal places and normalize
 manual input on change; their existing valid ranges remain unchanged. Keep manual

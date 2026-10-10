@@ -1773,7 +1773,7 @@ function recoilEditor(entry) {
                         input.type = 'number'; input.step = 'any'; input.required = true;
                         if (!axis) input.min = 0;
                         input.value = value;
-                        if (axis) configureDecimalInput(input, .05);
+                        if (axis) configureDecimalInput(input, 1);
                         input.setAttribute('aria-label', `配置组 ${index + 1} 第 ${rowIndex + 1} 行 ${['时间（秒）', 'X 轴', 'Y 轴'][axis]}`);
                         input.oninput = () => {
                             if (!Number.isFinite(input.valueAsNumber)) return;
