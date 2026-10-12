@@ -5,6 +5,7 @@ from __future__ import annotations
 import ctypes
 from importlib.resources import files
 import socket
+import sys
 from threading import Thread
 import time
 from urllib.error import URLError
@@ -121,4 +122,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--native-picker":
+        from razor_console.model_picker import run_native_picker
+
+        run_native_picker(sys.argv[2:])
+        raise SystemExit(0)
     raise SystemExit(main())

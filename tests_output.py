@@ -12,6 +12,24 @@ from razor_console.settings import ConsoleSettings
 
 
 class OutputTests(unittest.TestCase):
+    def test_native_ffmpeg_quiet_setting_is_inherited_at_process_creation(self):
+        process = RuntimeProcess(Path('.'))
+        with patch("razor_console.services.Path.is_file", return_value=True):
+            _, environment = process._launch_command()
+        self.assertEqual(environment["OPENCV_FFMPEG_LOGLEVEL"], "-8")
+
+    def test_mjpeg_diagnostics_are_skipped_without_hiding_runtime_errors(self):
+        process = RuntimeProcess(Path('.'))
+        for _ in range(300):
+            process._append_log(20, '[mjpeg @ 0000000038dc5940] overread 8')
+        process._append_log(20, '[mjpeg @ 0000000038dc5940] error count: 67')
+        process._append_log(40, 'ERROR: DhzBox network worker failed')
+        process._append_log(20, 'DhzBox physical input monitor active')
+        self.assertEqual([row['text'] for row in process.read_logs(0)], [
+            'ERROR: DhzBox network worker failed',
+            'DhzBox physical input monitor active',
+        ])
+
     def test_frame_endpoint_does_not_replay_shared_frame_after_runtime_stops(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

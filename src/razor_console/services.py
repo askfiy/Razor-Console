@@ -40,6 +40,7 @@ _CONTROL_HEADER = struct.Struct("<Q")
 _CONTROL_MAP_SIZE = _CONTROL_HEADER.size
 _ANSI_ESCAPE_PATTERN = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
 _LOG_LEVEL_PATTERN = re.compile(r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s*:")
+_MJPEG_DIAGNOSTIC_PATTERN = re.compile(r"^\s*\[mjpeg @ [0-9A-Fa-fx]+\]")
 _LOG_LEVELS = {
     "DEBUG": 10,
     "INFO": 20,
@@ -195,6 +196,9 @@ class RuntimeProcess:
         clean_text = _ANSI_ESCAPE_PATTERN.sub("", text).rstrip()
         if not clean_text:
             return
+        # Drain the pipe, but omit native MJPEG decoder diagnostics from Console.
+        if _MJPEG_DIAGNOSTIC_PATTERN.match(clean_text):
+            return
 
         with self._log_lock:
             if "[src.reload]" in clean_text and clean_text.endswith("Configuration file change detected, reloading..."):
@@ -308,6 +312,8 @@ class RuntimeProcess:
         environment["PYTHONUNBUFFERED"] = "1"
         environment["PYTHONIOENCODING"] = "utf-8"
         environment["PYTHONUTF8"] = "1"
+        # Pass native logging configuration before OpenCV's DLL/CRT is loaded.
+        environment["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
 
         if os.name == "nt":
             runtime_python = (

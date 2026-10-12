@@ -1,5 +1,10 @@
 # Razor Console
 
+DhzBox Lite 网络设备可在「启动设置」中选择 `DhzBox`，填写硬件信息页的
+IP、PORT、RANDOM，以及本机 UDP 监听端口（默认 10086）。需要配套支持
+`device.DhzBox` 的 Razor Runtime。选择非 CPBox 设备时，Console 会禁用
+CPBox 扩展键定义并保留配置；切回 CPBox 后可手动重新启用。
+
 Web-based configuration workspace and process supervisor for
 [Razor Runtime](https://github.com/askfiy/Razor-Runtime).
 

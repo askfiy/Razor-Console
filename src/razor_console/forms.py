@@ -192,4 +192,17 @@ def transform(content: str, changes: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             content = content.rstrip() + "\n\n" + replacement
         tomlkit.parse(content)
+    # CPBox raw-report extensions are not a generic hardware capability. Disable
+    # the whole subtree on hardware changes, keeping definitions for a later
+    # switch back. Apply this to API edits as well as the hardware picker.
+    entries = sections(content)
+    if any(item["enabled"] and item["name"].startswith("device.")
+           and not item["name"].startswith("device.ExtendOptions")
+           and item["name"] != "device.CloudPierce" for item in entries):
+        extensions = [item for item in entries if item["enabled"]
+                      and (item["name"] == "device.ExtendOptions"
+                           or item["name"].startswith("device.ExtendOptions."))]
+        if extensions:
+            return transform(content, [{"name": item["name"], "enabled": False}
+                                       for item in extensions])
     return describe(content)

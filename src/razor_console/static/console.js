@@ -68,6 +68,7 @@ const labels = {
     port: '端口',
     monitor_port: '监听端口',
     key: '设备密钥',
+    random_key: 'RANDOM',
     activation_keys: '激活按键',
     skip_rand_keys: '跳过随机偏移按键',
     skip_delay_keys: '跳过延迟按键',
@@ -522,7 +523,8 @@ function availableExtensionKeys() {
     const sections = state.modal?.scope === 'boot' ? state.modal.sections : [];
     const get = name => sections.find(entry => entry.name === name) || section('boot', name);
     const extensions = get('device.ExtendOptions');
-    if (!get('device.CloudPierce')?.enabled || get('device.KmBoxNet')?.enabled || !extensions?.enabled) return [];
+    const devices = sections.length ? sections : state.boot.sections;
+    if (!get('device.CloudPierce')?.enabled || devices.some(s => isHardwareDevice(s.name) && s.enabled && s.name !== 'device.CloudPierce') || !extensions?.enabled) return [];
     return Object.keys(extensions.data || {}).filter(key => /^<.+>$/.test(key));
 }
 function keysControl(value, onChange, single = false) {
@@ -615,7 +617,7 @@ function numberBounds(key, value) {
         aiming_delay: [1, .01], firing_delay: [1, .01], firing_interval: [1, .01]
     }[key];
     if (fixed) return {min: 0, max: fixed[0], step: fixed[1], fixed: true, freePrecision: /^k[pidf]_[xy]$/.test(key)};
-    const integer = /^(class|class_id|priority|.*frames|nms_topk|port|monitor_port|imgsz)$/.test(key);
+    const integer = /^(class|class_id|priority|.*frames|nms_topk|port|monitor_port|random_key|imgsz)$/.test(key);
     let min = 0,
         max = 1,
         step = integer ? 1 : .01;
@@ -733,7 +735,7 @@ const explanations = {
     x_scale: 'X 轴输出的缩放倍数。', y_scale: 'Y 轴输出的缩放倍数。', search_ratio: '搜索区域相对画面的比例。',
     filter_classes: '需要过滤的模型类别编号。', class_filter: '普通模式仅保存所选类别。Lost 模式下，丢失前最后一个未丢失的 best 类别在列表内才保存；空列表保持仅采集无原始检测目标帧的行为。全部类别会添加当前配置中的所有类别。',
     output_dir: '采集数据的输出目录。', only_lost_mode: '仅在目标丢失时采集数据。',
-    host: '目标设备的主机名或 IP 地址。', port: '连接设备使用的端口。', monitor_port: '接收设备状态的监听端口。', com_port: '连接设备使用的串口名称。', key: '连接设备所需的密钥。'
+    host: '目标设备的主机名或 IP 地址。', port: '连接设备使用的端口。', monitor_port: '接收设备状态的本机 UDP 端口，请允许防火墙入站。', com_port: '连接设备使用的串口名称。', key: '连接设备所需的密钥。', random_key: 'DhzBox 硬件信息页的 RANDOM 数字（10–100），不是 KmBox 的密钥。'
 };
 function attachHelp(target, key) {
     let text = explanations[key];
@@ -803,7 +805,7 @@ function field(key, value, onChange, opts = {}) {
         const bounds = numberBounds(key, value);
         range.type = 'range';
         number.type = 'number';
-        number.step = /^(class|class_id|priority|.*frames|nms_topk|port|monitor_port|imgsz)$/.test(key) ? 1 : 'any';
+        number.step = /^(class|class_id|priority|.*frames|nms_topk|port|monitor_port|random_key|imgsz)$/.test(key) ? 1 : 'any';
         number.required = true;
         if (bounds.fixed) {
             number.min = bounds.min;
@@ -1500,6 +1502,11 @@ function modalSection(scope, name) {
                 port: 9579,
                 monitor_port: 9012,
                 key: ''
+            } : ['device.DhzBox', 'device.DHZBOX'].includes(name) ? {
+                host: '192.168.8.88',
+                port: 8187,
+                random_key: 81,
+                monitor_port: 10086
             } : {})),
             ...(current?.data || {})
         }),
@@ -1549,7 +1556,7 @@ function drawModalContents() {
 }
 
 function isHardwareDevice(name) {
-    return name.startsWith('device.') && name !== 'device.ExtendOptions';
+    return name.startsWith('device.') && name !== 'device.ExtendOptions' && !name.startsWith('device.ExtendOptions.');
 }
 
 function drawHardwarePicker(devices) {
@@ -1566,7 +1573,7 @@ function drawHardwarePicker(devices) {
     placeholder.disabled = true;
     select.append(placeholder);
     for (const entry of devices) select.append(new Option(
-        entry.name === 'device.CloudPierce' ? 'CPBox / CloudPierce' : entry.name === 'device.KmBoxNet' ? 'KmBoxNet' : entry.name.slice(7),
+        entry.name === 'device.CloudPierce' ? 'CPBox / CloudPierce' : entry.name === 'device.KmBoxNet' ? 'KmBoxNet' : entry.name === 'device.DHZBOX' ? 'DhzBox' : entry.name.slice(7),
         entry.name
     ));
     select.value = active.length === 1 ? active[0].name : '';
@@ -1583,6 +1590,11 @@ function drawHardwarePicker(devices) {
         }
         drawEntry(selected, details, true);
         const extensions = state.modal.sections.find(entry => entry.name === 'device.ExtendOptions');
+        if (selected.name !== 'device.CloudPierce' && extensions?.enabled) {
+            extensions.enabled = false;
+            extensions.changed = true;
+            state.modal.changed = true;
+        }
         if (selected.name === 'device.CloudPierce' && extensions) drawEntry(extensions, details);
     };
     select.onchange = () => {
@@ -1975,8 +1987,8 @@ $('#plugin-grid').onchange = e => {
 
 function bootSettings() {
     const names = state.boot.sections.filter(s => s.name === 'system' || s.name.startsWith('device.')).map(s => s.name);
-    for (const n of ['device.CloudPierce', 'device.KmBoxNet'])
-        if (!names.includes(n)) names.push(n);
+    for (const n of ['device.CloudPierce', 'device.KmBoxNet', 'device.DhzBox'])
+        if (!names.includes(n) && !(n === 'device.DhzBox' && names.includes('device.DHZBOX'))) names.push(n);
     openDrawer('boot', names, '启动设置')
 }
 $('#boot-settings').onclick = bootSettings;

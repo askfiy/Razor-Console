@@ -9,6 +9,26 @@ from razor_console.services import ConfigStore
 
 
 class FormTests(unittest.TestCase):
+    def test_non_cpbox_disables_extensions_but_keeps_definitions(self):
+        content = ('[device.CloudPierce]\ncom_port = "COM4"\n'
+                   '[device.ExtendOptions]\n'
+                   '[device.ExtendOptions."<mouse-meta>"]\nbyte_index = 4\n')
+        result = transform(content, [
+            {'name': 'device.CloudPierce', 'enabled': False},
+            {'name': 'device.DhzBox', 'enabled': True, 'data': {
+                'host': '192.168.8.88', 'port': 8187, 'random_key': 81,
+                'monitor_port': 10086}},
+        ])
+        extension = next(s for s in result['sections'] if s['name'] == 'device.ExtendOptions')
+        self.assertFalse(extension['enabled'])
+        self.assertEqual(extension['data']['<mouse-meta>']['byte_index'], 4)
+        self.assertNotIn('ExtendOptions', tomlkit.parse(result['content'])['device'])
+        restored = transform(result['content'], [
+            {'name': 'device.DhzBox', 'enabled': False},
+            {'name': 'device.CloudPierce', 'enabled': True},
+        ])
+        self.assertFalse(next(s for s in restored['sections'] if s['name'] == 'device.ExtendOptions')['enabled'])
+
     def test_controller_three_decimal_gains_round_trip(self):
         gains = {f"{gain}_{axis}": 0.075 for gain in ("kp", "ki", "kd", "kf") for axis in ("x", "y")}
         original = "[controller]\n" + "".join(f"{key} = 0.1\n" for key in gains)
